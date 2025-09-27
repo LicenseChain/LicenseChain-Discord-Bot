@@ -88,7 +88,7 @@ DISCORD_GUILD_ID=your-discord-guild-id
 LICENSECHAIN_API_KEY=your-api-key
 LICENSECHAIN_APP_NAME=your-app-name
 LICENSECHAIN_APP_VERSION=1.0.0
-LICENSECHAIN_BASE_URL=https://api.licensechain.com
+LICENSECHAIN_BASE_URL=https://api.licensechain.app
 
 # Bot Configuration
 BOT_PREFIX=!
@@ -426,10 +426,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: [https://docs.licensechain.com/discord-bot](https://docs.licensechain.com/discord-bot)
+- **Documentation**: [https://docs.licensechain.app/discord-bot](https://docs.licensechain.app/discord-bot)
 - **Issues**: [GitHub Issues](https://github.com/LicenseChain/LicenseChain-Discord-Bot/issues)
 - **Discord**: [LicenseChain Discord](https://discord.gg/licensechain)
-- **Email**: support@licensechain.com
+- **Email**: support@licensechain.app
 
 ## 🔗 Related Projects
 
