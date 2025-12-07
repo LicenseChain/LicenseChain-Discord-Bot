@@ -1,4 +1,4 @@
-# LicenseChain Discord Bot
+﻿# LicenseChain Discord Bot
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
@@ -7,18 +7,18 @@
 
 Official Discord Bot for LicenseChain - License management and customer support through Discord.
 
-## 🚀 Features
+## ðŸš€ Features
 
-- **🔐 License Management** - Validate, create, and manage licenses
-- **👤 User Support** - Handle customer inquiries and support tickets
-- **📊 Analytics** - View usage statistics and performance metrics
-- **🔔 Notifications** - Real-time license events and alerts
-- **🎫 Ticket System** - Create and manage support tickets
-- **📈 Reporting** - Generate reports and analytics
-- **🛡️ Security** - Secure authentication and authorization
-- **🛠️ Easy Setup** - Simple configuration and deployment
+- **ðŸ” License Management** - Validate, create, and manage licenses
+- **ðŸ‘¤ User Support** - Handle customer inquiries and support tickets
+- **ðŸ“Š Analytics** - View usage statistics and performance metrics
+- **ðŸ”” Notifications** - Real-time license events and alerts
+- **ðŸŽ« Ticket System** - Create and manage support tickets
+- **ðŸ“ˆ Reporting** - Generate reports and analytics
+- **ðŸ›¡ï¸ Security** - Secure authentication and authorization
+- **ðŸ› ï¸ Easy Setup** - Simple configuration and deployment
 
-## 📦 Installation
+## ðŸ“¦ Installation
 
 ### Method 1: npm (Recommended)
 
@@ -52,7 +52,7 @@ docker run -p 3000:3000 licensechain-discord-bot
 4. Configure environment variables
 5. Start the bot: `npm start`
 
-## 🚀 Quick Start
+## ðŸš€ Quick Start
 
 ### Basic Setup
 
@@ -103,7 +103,7 @@ WEBHOOK_URL=your-webhook-url
 WEBHOOK_SECRET=your-webhook-secret
 ```
 
-## 📚 Commands
+## ðŸ“š Commands
 
 ### License Commands
 
@@ -200,7 +200,7 @@ WEBHOOK_SECRET=your-webhook-secret
 !admin logs [lines]
 ```
 
-## 🔧 Configuration
+## ðŸ”§ Configuration
 
 ### Bot Configuration
 
@@ -268,7 +268,7 @@ DATABASE_URL=mysql://username:password@localhost:3306/licensechain
 DATABASE_URL=sqlite://./database.sqlite
 ```
 
-## 🛡️ Security Features
+## ðŸ›¡ï¸ Security Features
 
 ### Authentication
 
@@ -291,7 +291,7 @@ DATABASE_URL=sqlite://./database.sqlite
 - XSS protection
 - Secure logging
 
-## 📊 Analytics and Monitoring
+## ðŸ“Š Analytics and Monitoring
 
 ### Command Analytics
 
@@ -334,7 +334,7 @@ try {
 }
 ```
 
-## 🔄 Error Handling
+## ðŸ”„ Error Handling
 
 ### Custom Error Types
 
@@ -370,7 +370,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 ```
 
-## 🧪 Testing
+## ðŸ§ª Testing
 
 ### Unit Tests
 
@@ -399,7 +399,7 @@ npm run test:integration
 npm run test:e2e
 ```
 
-## 📝 Examples
+## ðŸ“ Examples
 
 See the `examples/` directory for complete examples:
 
@@ -408,7 +408,7 @@ See the `examples/` directory for complete examples:
 - `webhook-integration.js` - Webhook handling
 - `deployment.js` - Deployment configuration
 
-## 🤝 Contributing
+## ðŸ¤ Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
@@ -420,18 +420,18 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 4. Set up environment variables
 5. Start development server: `npm run dev`
 
-## 📄 License
+## ðŸ“„ License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## ðŸ†˜ Support
 
 - **Documentation**: [https://docs.licensechain.app/discord-bot](https://docs.licensechain.app/discord-bot)
 - **Issues**: [GitHub Issues](https://github.com/LicenseChain/LicenseChain-Discord-Bot/issues)
 - **Discord**: [LicenseChain Discord](https://discord.gg/licensechain)
 - **Email**: support@licensechain.app
 
-## 🔗 Related Projects
+## ðŸ”— Related Projects
 
 - [LicenseChain Telegram Bot](https://github.com/LicenseChain/LicenseChain-TG-Bot)
 - [LicenseChain Node.js SDK](https://github.com/LicenseChain/LicenseChain-NodeJS-SDK)
@@ -439,4 +439,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ for the Discord community**
+**Made with â¤ï¸ for the Discord community**
+
+
+## API Endpoints
+
+All endpoints automatically use the /v1 prefix when connecting to https://api.licensechain.app.
+
+### Base URL
+- **Production**: https://api.licensechain.app/v1\n- **Development**: https://api.licensechain.app/v1\n\n### Available Endpoints\n\n| Method | Endpoint | Description |\n|--------|----------|-------------|\n| GET | /v1/health | Health check |\n| POST | /v1/auth/login | User login |\n| POST | /v1/auth/register | User registration |\n| GET | /v1/apps | List applications |\n| POST | /v1/apps | Create application |\n| GET | /v1/licenses | List licenses |\n| POST | /v1/licenses/verify | Verify license |\n| GET | /v1/webhooks | List webhooks |\n| POST | /v1/webhooks | Create webhook |\n| GET | /v1/analytics | Get analytics |\n\n**Note**: The SDK automatically prepends /v1 to all endpoints, so you only need to specify the path (e.g., /auth/login instead of /v1/auth/login).
+
