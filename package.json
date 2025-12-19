@@ -1,6 +1,6 @@
 {
   "name": "@licensechain/discord-bot",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "LicenseChain Discord Bot - Advanced Discord integration for license management",
   "main": "src/index.js",
   "scripts": {
