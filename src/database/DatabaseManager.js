@@ -17,19 +17,54 @@ class DatabaseManager {
 
   async initialize() {
     try {
-      // Ensure data directory exists
+      // Ensure data directory exists with proper permissions
       const dataDir = path.dirname(this.dbPath);
       if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+        try {
+          fs.mkdirSync(dataDir, { recursive: true, mode: 0o755 });
+        } catch (mkdirError) {
+          // If mkdir fails, try to continue - might be permission issue
+          this.logger.warn('Could not create data directory:', mkdirError.message);
+        }
       }
 
-      // Open database connection
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          this.logger.error('Error opening database:', err);
-          throw err;
+      // Try to set permissions if possible
+      try {
+        if (fs.existsSync(dataDir)) {
+          fs.chmodSync(dataDir, 0o755);
         }
-        this.logger.info(`Database connected: ${this.dbPath}`);
+      } catch (chmodError) {
+        // Ignore chmod errors - might not have permission
+      }
+
+      // Open database connection with promise wrapper
+      await new Promise((resolve, reject) => {
+        this.db = new sqlite3.Database(this.dbPath, (err) => {
+          if (err) {
+            // If permission error, try to create database in a writable location
+            if (err.code === 'SQLITE_CANTOPEN' || err.errno === 14) {
+              this.logger.warn('Cannot open database at configured path, trying fallback location');
+              // Try to use a fallback path in /tmp or current directory
+              const fallbackPath = path.join(process.cwd(), 'bot.db');
+              this.dbPath = fallbackPath;
+              this.db = new sqlite3.Database(fallbackPath, (fallbackErr) => {
+                if (fallbackErr) {
+                  this.logger.error('Error opening database at fallback location:', fallbackErr);
+                  reject(fallbackErr);
+                } else {
+                  this.logger.info(`Database connected (fallback): ${fallbackPath}`);
+                  resolve();
+                }
+              });
+            } else {
+              this.logger.error('Error opening database:', err);
+              reject(err);
+            }
+          } else {
+            this.logger.info(`Database connected: ${this.dbPath}`);
+            resolve();
+          }
+        });
       });
 
       // Create tables
@@ -38,7 +73,9 @@ class DatabaseManager {
       return true;
     } catch (error) {
       this.logger.error('Failed to initialize database:', error);
-      throw error;
+      // Don't throw - allow bot to continue without database
+      this.logger.warn('Bot will continue without database. Some features may not work.');
+      return false;
     }
   }
 
@@ -607,6 +644,22 @@ class DatabaseManager {
               }
             }
           );
+        }
+      );
+    });
+  }
+
+  async getAllUsers() {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM users ORDER BY created_at DESC',
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
         }
       );
     });

@@ -67,7 +67,7 @@ module.exports = {
           await this.handleCreate(interaction);
           break;
         default:
-          await interaction.reply({ content: 'Unknown subcommand!', ephemeral: true });
+          await interaction.reply({ content: 'Unknown subcommand!', flags: 64 });
       }
     } catch (error) {
       console.error('Error in license command:', error);
@@ -77,7 +77,7 @@ module.exports = {
         .setDescription('An error occurred while processing your request.')
         .setTimestamp();
 
-      await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
     }
   },
 
@@ -205,12 +205,50 @@ module.exports = {
       const page = Validator.validateInteger(rawPage, 1, 1000);
       const userId = Validator.validateUserId(interaction.user.id);
 
-      // Get user's licenses from database or API
-      if (!dbManager) {
-        throw new Error('Database manager not available');
+      // Ensure user exists in database
+      if (dbManager) {
+        try {
+          await dbManager.getOrCreateUser({
+            id: userId,
+            username: interaction.user.username,
+            discriminator: interaction.user.discriminator
+          });
+        } catch (userError) {
+          console.warn('Could not create/get user:', userError.message);
+        }
       }
 
-      const licenses = await dbManager.getUserLicenses(userId);
+      // Try to get licenses from API first, then fallback to database
+      let licenses = [];
+      
+      if (licenseClient) {
+        try {
+          // Try API first - getUserLicenses filters by email/issuedTo, so we need to pass the right identifier
+          // For Discord, we might need to use the user's email or Discord ID as identifier
+          const apiLicenses = await licenseClient.getUserLicenses(userId);
+          if (apiLicenses && apiLicenses.length > 0) {
+            licenses = apiLicenses.map(license => ({
+              key: license.key || license.licenseKey || license.id,
+              status: license.status || 'active',
+              applicationName: license.applicationName || license.appName || license.app?.name || 'LicenseChain',
+              plan: license.plan || 'standard',
+              expiresAt: license.expiresAt || license.expires_at,
+              createdAt: license.createdAt || license.created_at
+            }));
+          }
+        } catch (apiError) {
+          console.warn('Could not fetch licenses from API:', apiError.message);
+        }
+      }
+
+      // Fallback to database if API didn't return licenses
+      if (licenses.length === 0 && dbManager) {
+        try {
+          licenses = await dbManager.getUserLicenses(userId);
+        } catch (dbError) {
+          console.warn('Could not fetch licenses from database:', dbError.message);
+        }
+      }
       
       if (!licenses || licenses.length === 0) {
         const embed = new EmbedBuilder()

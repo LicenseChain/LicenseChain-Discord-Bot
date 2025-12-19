@@ -76,8 +76,13 @@ client.once(Events.ClientReady, async () => {
   // Set bot activity
   client.user.setActivity('LicenseChain Management', { type: ActivityType.Watching });
   
-  // Initialize database
-  await dbManager.initialize();
+  // Initialize database (non-blocking - bot can continue without DB)
+  try {
+    await dbManager.initialize();
+  } catch (error) {
+    logger.warn('Database initialization failed, but bot will continue:', error.message);
+    logger.warn('Some features requiring database may not work properly.');
+  }
   
   // Load commands
   await commandHandler.loadCommands();
@@ -145,8 +150,25 @@ app.listen(PORT, () => {
   logger.info(`Health check server running on port ${PORT}`);
 });
 
+// Validate required environment variables
+if (!process.env.DISCORD_TOKEN) {
+  logger.error('DISCORD_TOKEN is not set! Please set it in your .env file or environment variables.');
+  logger.error('The bot cannot start without a valid Discord token.');
+  process.exit(1);
+}
+
+if (!process.env.LICENSE_CHAIN_API_KEY) {
+  logger.warn('LICENSE_CHAIN_API_KEY is not set. Some features may not work properly.');
+}
+
 // Login to Discord
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+  logger.error('Failed to login to Discord:', error.message);
+  if (error.code === 'TokenInvalid') {
+    logger.error('The Discord token is invalid. Please check your DISCORD_TOKEN in .env file.');
+  }
+  process.exit(1);
+});
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

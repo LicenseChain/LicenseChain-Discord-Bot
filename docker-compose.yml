@@ -1,0 +1,22 @@
+services:
+  discord-bot:
+    build: .
+    container_name: licensechain-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+    # Entrypoint will handle user switching after fixing permissions
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const port = process.env.PORT || 3004; http.get(`http://localhost:${port}/health`, (r) => {let data=''; r.on('data', d=>data+=d); r.on('end', ()=>{process.exit(r.statusCode===200?0:1)});}).on('error', ()=>{process.exit(1)});"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+

@@ -92,7 +92,7 @@ module.exports = {
         if (!commandHelp) {
             await interaction.reply({ 
                 content: `Command \`${commandName}\` not found! Use \`/help\` to see all available commands.`, 
-                ephemeral: true 
+                flags: 64
             });
             return;
         }

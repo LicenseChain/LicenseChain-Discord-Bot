@@ -80,10 +80,10 @@ module.exports = {
 
             switch (subcommand) {
                 case 'stats':
-                    await this.handleStats(interaction, client);
+                    await this.handleStats(interaction, client, dbManager);
                     break;
                 case 'users':
-                    await this.handleUsers(interaction, client);
+                    await this.handleUsers(interaction, client, dbManager);
                     break;
                 case 'products':
                     await this.handleProducts(interaction, client);
@@ -95,7 +95,7 @@ module.exports = {
                     await this.handleHealth(interaction, client);
                     break;
                 default:
-                    await interaction.reply({ content: 'Unknown subcommand!', ephemeral: true });
+                    await interaction.reply({ content: 'Unknown subcommand!', flags: 64 });
             }
         } catch (error) {
             logger.error('Error in admin command:', error);
@@ -115,59 +115,91 @@ module.exports = {
         }
     },
 
-    async handleStats(interaction, client) {
+    async handleStats(interaction, client, dbManager) {
         await interaction.deferReply();
+        const logger = new Logger('AdminCommand');
 
         try {
-            const [licenseStats, userStats, productStats] = await Promise.all([
-                client.getLicenseStats(),
-                client.getUserStats(),
-                client.getProductStats()
-            ]);
+            // Get stats from database
+            const dbStats = dbManager ? await dbManager.getBotStats() : null;
+            
+            // Get analytics from API
+            let apiStats = null;
+            try {
+                apiStats = await client.getAnalytics('30d', ['licenses', 'users', 'revenue']);
+            } catch (apiError) {
+                logger.warn('Could not fetch API stats:', apiError.message);
+            }
 
             const embed = new EmbedBuilder()
                 .setTitle('📊 LicenseChain Statistics')
                 .setColor(0x00ff00)
-                .setTimestamp()
-                .addFields(
-                    {
-                        name: '🔑 Licenses',
-                        value: `Total: ${licenseStats.total}\nActive: ${licenseStats.active}\nExpired: ${licenseStats.expired}\nRevoked: ${licenseStats.revoked}\nRevenue: $${licenseStats.revenue}`,
-                        inline: true
-                    },
-                    {
-                        name: '👤 Users',
-                        value: `Total: ${userStats.total}\nActive: ${userStats.active}\nInactive: ${userStats.inactive}`,
-                        inline: true
-                    },
-                    {
-                        name: '📦 Products',
-                        value: `Total: ${productStats.total}\nActive: ${productStats.active}\nRevenue: $${productStats.revenue}`,
-                        inline: true
-                    }
-                );
+                .setTimestamp();
+
+            // Database stats
+            if (dbStats) {
+                embed.addFields({
+                    name: '💾 Database Stats',
+                    value: `Users: ${dbStats.totalUsers || 0}\nLicenses: ${dbStats.totalLicenses || 0}\nCommands: ${dbStats.totalCommands || 0}`,
+                    inline: true
+                });
+            }
+
+            // API stats
+            if (apiStats) {
+                const licenseCount = apiStats.licenses?.total || apiStats.licenses || 0;
+                const userCount = apiStats.users?.total || apiStats.users || 0;
+                const revenue = apiStats.revenue?.total || apiStats.revenue || 0;
+                
+                embed.addFields({
+                    name: '🌐 API Stats',
+                    value: `Licenses: ${licenseCount}\nUsers: ${userCount}\nRevenue: $${revenue}`,
+                    inline: true
+                });
+            }
+
+            if (!dbStats && !apiStats) {
+                embed.setDescription('No statistics available. Please check your API and database configuration.');
+            }
 
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
-            Logger.error('Error fetching stats:', error);
+            logger.error('Error fetching stats:', error);
             await interaction.editReply({ 
                 content: 'Failed to fetch statistics. Please try again later.' 
             });
         }
     },
 
-    async handleUsers(interaction, client) {
+    async handleUsers(interaction, client, dbManager) {
         await interaction.deferReply();
+        const logger = new Logger('AdminCommand');
 
         try {
-            const page = interaction.options.getInteger('page') || 1;
-            const limit = interaction.options.getInteger('limit') || 10;
+            const page = Validator.validateInteger(interaction.options.getInteger('page') || 1, 1, 100);
+            const limit = Validator.validateInteger(interaction.options.getInteger('limit') || 10, 1, 50);
 
-            const response = await client.listUsers(page, limit);
-            const users = response.data;
+            // Get users from database
+            let users = [];
+            let totalUsers = 0;
+
+            if (dbManager) {
+                try {
+                    // Get all users from database
+                    const dbUsers = await dbManager.getAllUsers();
+                    totalUsers = dbUsers.length;
+                    
+                    // Paginate
+                    const startIndex = (page - 1) * limit;
+                    const endIndex = startIndex + limit;
+                    users = dbUsers.slice(startIndex, endIndex);
+                } catch (dbError) {
+                    logger.warn('Could not fetch users from database:', dbError.message);
+                }
+            }
 
             if (users.length === 0) {
-                await interaction.editReply({ content: 'No users found.' });
+                await interaction.editReply({ content: 'No users found in database.' });
                 return;
             }
 
@@ -175,12 +207,11 @@ module.exports = {
                 .setTitle(`👤 Users (Page ${page})`)
                 .setColor(0x0099ff)
                 .setTimestamp()
-                .setFooter({ text: `Total: ${response.total} users` });
+                .setFooter({ text: `Total: ${totalUsers} users` });
 
             const userList = users.map(user => 
-                `**${user.name}**\n` +
-                `ID: \`${user.id}\`\n` +
-                `Email: ${user.email}\n` +
+                `**${user.username || 'Unknown'}**\n` +
+                `Discord ID: \`${user.discord_id}\`\n` +
                 `Created: ${new Date(user.created_at).toLocaleDateString()}`
             ).join('\n\n');
 
@@ -188,61 +219,79 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
-            Logger.error('Error fetching users:', error);
+            logger.error('Error fetching users:', error);
             await interaction.editReply({ 
-                content: 'Failed to fetch users. Please try again later.' 
+                content: `Failed to fetch users: ${error.message}` 
             });
         }
     },
 
     async handleProducts(interaction, client) {
         await interaction.deferReply();
+        const logger = new Logger('AdminCommand');
 
         try {
-            const page = interaction.options.getInteger('page') || 1;
-            const limit = interaction.options.getInteger('limit') || 10;
+            const page = Validator.validateInteger(interaction.options.getInteger('page') || 1, 1, 100);
+            const limit = Validator.validateInteger(interaction.options.getInteger('limit') || 10, 1, 50);
 
-            const response = await client.listProducts(page, limit);
-            const products = response.data;
+            // Get apps/products from API
+            let apps = [];
+            try {
+                const response = await client.client.get('/v1/apps');
+                const allApps = response.data?.apps || response.data || [];
+                
+                // Paginate
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                apps = allApps.slice(startIndex, endIndex);
+            } catch (apiError) {
+                logger.warn('Could not fetch apps from API:', apiError.message);
+            }
 
-            if (products.length === 0) {
-                await interaction.editReply({ content: 'No products found.' });
+            if (apps.length === 0) {
+                await interaction.editReply({ content: 'No products/apps found. Please check your API configuration.' });
                 return;
             }
 
             const embed = new EmbedBuilder()
-                .setTitle(`📦 Products (Page ${page})`)
+                .setTitle(`📦 Products/Apps (Page ${page})`)
                 .setColor(0xff9900)
-                .setTimestamp()
-                .setFooter({ text: `Total: ${response.total} products` });
+                .setTimestamp();
 
-            const productList = products.map(product => 
-                `**${product.name}**\n` +
-                `ID: \`${product.id}\`\n` +
-                `Price: $${product.price} ${product.currency}\n` +
-                `Created: ${new Date(product.created_at).toLocaleDateString()}`
+            const productList = apps.map(app => 
+                `**${app.name || app.id}**\n` +
+                `ID: \`${app.id}\`\n` +
+                `Slug: ${app.slug || 'N/A'}\n` +
+                `Created: ${app.created_at ? new Date(app.created_at).toLocaleDateString() : 'Unknown'}`
             ).join('\n\n');
 
             embed.setDescription(productList);
 
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
-            Logger.error('Error fetching products:', error);
+            logger.error('Error fetching products:', error);
             await interaction.editReply({ 
-                content: 'Failed to fetch products. Please try again later.' 
+                content: `Failed to fetch products: ${error.message}` 
             });
         }
     },
 
     async handleWebhooks(interaction, client) {
         await interaction.deferReply();
+        const logger = new Logger('AdminCommand');
 
         try {
-            const response = await client.listWebhooks();
-            const webhooks = response.data;
+            // Try to get webhooks from API
+            let webhooks = [];
+            try {
+                const response = await client.client.get('/v1/webhooks');
+                webhooks = response.data?.webhooks || response.data || [];
+            } catch (apiError) {
+                logger.warn('Could not fetch webhooks from API:', apiError.message);
+            }
 
             if (webhooks.length === 0) {
-                await interaction.editReply({ content: 'No webhooks found.' });
+                await interaction.editReply({ content: 'No webhooks found. Webhooks may not be configured or the API endpoint may not be available.' });
                 return;
             }
 
@@ -250,57 +299,74 @@ module.exports = {
                 .setTitle('🔗 Webhooks')
                 .setColor(0x9932cc)
                 .setTimestamp()
-                .setFooter({ text: `Total: ${response.total} webhooks` });
+                .setFooter({ text: `Total: ${webhooks.length} webhooks` });
 
             const webhookList = webhooks.map(webhook => 
-                `**${webhook.id}**\n` +
-                `URL: ${webhook.url}\n` +
-                `Events: ${webhook.events.join(', ')}\n` +
-                `Created: ${new Date(webhook.created_at).toLocaleDateString()}`
+                `**${webhook.id || 'Unknown'}**\n` +
+                `URL: ${webhook.url ? webhook.url.substring(0, 50) + '...' : 'N/A'}\n` +
+                `Events: ${webhook.events ? webhook.events.join(', ') : 'N/A'}\n` +
+                `Created: ${webhook.created_at ? new Date(webhook.created_at).toLocaleDateString() : 'Unknown'}`
             ).join('\n\n');
 
             embed.setDescription(webhookList);
 
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
-            Logger.error('Error fetching webhooks:', error);
+            logger.error('Error fetching webhooks:', error);
             await interaction.editReply({ 
-                content: 'Failed to fetch webhooks. Please try again later.' 
+                content: `Failed to fetch webhooks: ${error.message}` 
             });
         }
     },
 
     async handleHealth(interaction, client) {
         await interaction.deferReply();
+        const logger = new Logger('AdminCommand');
 
         try {
-            const [ping, health] = await Promise.all([
-                client.ping(),
-                client.health()
-            ]);
+            // Check API health
+            let healthStatus = null;
+            let apiResponseTime = null;
+            
+            try {
+                const startTime = Date.now();
+                healthStatus = await client.healthCheck();
+                apiResponseTime = Date.now() - startTime;
+            } catch (apiError) {
+                logger.warn('API health check failed:', apiError.message);
+                healthStatus = { status: 'unhealthy', error: apiError.message };
+            }
 
             const embed = new EmbedBuilder()
                 .setTitle('🏥 API Health Check')
-                .setColor(0x00ff00)
+                .setColor(healthStatus?.status === 'healthy' ? 0x00ff00 : 0xff0000)
                 .setTimestamp()
                 .addFields(
                     {
-                        name: '📡 Ping',
-                        value: `Message: ${ping.message}\nTime: ${ping.time}`,
+                        name: '🌐 API Status',
+                        value: healthStatus?.status || 'Unknown',
                         inline: true
                     },
                     {
-                        name: '💚 Health',
-                        value: `Status: ${health.status}\nVersion: ${health.version}\nTimestamp: ${health.timestamp}`,
+                        name: '⏱️ Response Time',
+                        value: apiResponseTime ? `${apiResponseTime}ms` : 'N/A',
                         inline: true
                     }
                 );
 
+            if (healthStatus?.version) {
+                embed.addFields({ name: '📦 Version', value: healthStatus.version, inline: true });
+            }
+
+            if (healthStatus?.error) {
+                embed.addFields({ name: '❌ Error', value: Validator.sanitizeForDisplay(healthStatus.error), inline: false });
+            }
+
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
-            Logger.error('Error checking health:', error);
+            logger.error('Error checking health:', error);
             await interaction.editReply({ 
-                content: 'Failed to check API health. Please try again later.' 
+                content: `Failed to check API health: ${error.message}` 
             });
         }
     }

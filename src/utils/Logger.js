@@ -10,7 +10,21 @@ class Logger {
 
     ensureLogDirectory() {
         if (!fs.existsSync(this.logDir)) {
-            fs.mkdirSync(this.logDir, { recursive: true });
+            try {
+                fs.mkdirSync(this.logDir, { recursive: true, mode: 0o755 });
+            } catch (error) {
+                // If can't create logs directory, continue without file logging
+                console.warn('Could not create logs directory:', error.message);
+            }
+        }
+        
+        // Try to set permissions if possible
+        try {
+            if (fs.existsSync(this.logDir)) {
+                fs.chmodSync(this.logDir, 0o755);
+            }
+        } catch (chmodError) {
+            // Ignore chmod errors
         }
     }
 
@@ -24,13 +38,23 @@ class Logger {
     }
 
     writeToFile(level, message, ...args) {
+        // Skip file logging if directory doesn't exist or we can't write
+        if (!fs.existsSync(this.logDir)) {
+            return;
+        }
+
         const logFile = path.join(this.logDir, `${new Date().toISOString().split('T')[0]}.log`);
         const formattedMessage = this.formatMessage(level, message, ...args);
         
         try {
             fs.appendFileSync(logFile, formattedMessage + '\n');
         } catch (error) {
-            console.error('Failed to write to log file:', error);
+            // Only log permission errors once to avoid spam
+            if (error.code === 'EACCES' && !this._permissionErrorLogged) {
+                console.warn('Cannot write to log file (permission denied). Logging to console only.');
+                this._permissionErrorLogged = true;
+            }
+            // Silently fail - we still have console logging
         }
     }
 

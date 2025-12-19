@@ -81,7 +81,7 @@ module.exports = {
           await this.handleUsageStats(interaction, licenseClient, dbManager, period);
           break;
         default:
-          await interaction.editReply({ content: 'Unknown subcommand!', ephemeral: true });
+          await interaction.editReply({ content: 'Unknown subcommand!', flags: 64 });
       }
     } catch (error) {
       console.error('Error in analytics command:', error);

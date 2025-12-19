@@ -40,11 +40,82 @@ npm start
 # Build the Docker image
 docker build -t licensechain-discord-bot .
 
-# Run the container
-docker run -p 3000:3000 licensechain-discord-bot
+# Run the container with environment variables
+# Option 1: Use --env-file to load from .env file
+docker run -d \
+  --name licensechain-discord-bot \
+  --env-file .env \
+  -p 3004:3004 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  licensechain-discord-bot
+
+# Option 2: Pass environment variables directly
+docker run -d \
+  --name licensechain-discord-bot \
+  -e DISCORD_TOKEN=your-discord-bot-token \
+  -e LICENSE_CHAIN_API_KEY=your-api-key \
+  -e LICENSE_CHAIN_API_URL=https://api.licensechain.app \
+  -e LICENSECHAIN_APP_NAME=your-app-name \
+  -p 3004:3004 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  licensechain-discord-bot
+
+# Option 3: Use docker-compose (recommended)
+docker-compose up -d
 ```
 
-### Method 3: Manual Installation
+**Important Docker Notes:**
+- The `.env` file is NOT copied into the image for security reasons
+- You must pass environment variables using `--env-file` or `-e` flags
+- Mount volumes for `data/` and `logs/` to persist data between container restarts
+- Default port is 3004 (not 3000)
+
+**Docker Permission Issues:**
+If you encounter permission errors (`SQLITE_CANTOPEN` or `EACCES`), try one of these solutions:
+
+1. **Fix permissions on host (Linux/Mac):**
+   ```bash
+   sudo chown -R 1000:1000 ./data ./logs
+   sudo chmod -R 755 ./data ./logs
+   ```
+
+2. **Use named volumes instead of bind mounts:**
+   ```yaml
+   volumes:
+     - bot-data:/app/data
+     - bot-logs:/app/logs
+   volumes:
+     bot-data:
+     bot-logs:
+   ```
+
+3. **Run container as root (not recommended for production):**
+   ```yaml
+   user: "0:0"
+   ```
+
+4. **On Windows:** The entrypoint script will attempt to fix permissions automatically. If issues persist, ensure Docker Desktop has proper file sharing permissions enabled.
+
+### Method 3: Docker Compose (Recommended for Docker)
+
+```bash
+# Create .env file with your configuration
+cp .env.example .env
+nano .env  # Edit with your values
+
+# Start the bot
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the bot
+docker-compose down
+```
+
+### Method 4: Manual Installation
 
 1. Download the latest release from [GitHub Releases](https://github.com/LicenseChain/LicenseChain-Discord-Bot/releases)
 2. Extract to your project directory
