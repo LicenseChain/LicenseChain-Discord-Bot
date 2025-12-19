@@ -171,6 +171,43 @@ class DatabaseManager {
     return user;
   }
 
+  async getUserLicenses(discordId) {
+    return new Promise((resolve, reject) => {
+      // First get the user
+      this.getUser(discordId)
+        .then(user => {
+          if (!user) {
+            resolve([]);
+            return;
+          }
+
+          // Get licenses for this user
+          this.db.all(
+            'SELECT * FROM licenses WHERE user_id = ? ORDER BY created_at DESC',
+            [user.id],
+            (err, rows) => {
+              if (err) {
+                reject(err);
+              } else {
+                // Format licenses for return
+                const licenses = rows.map(row => ({
+                  key: row.license_key,
+                  status: row.status,
+                  createdAt: row.created_at,
+                  updatedAt: row.updated_at,
+                  applicationName: 'LicenseChain', // Default, can be enhanced
+                  plan: 'standard', // Default, can be enhanced
+                  expiresAt: null // Can be enhanced with additional fields
+                }));
+                resolve(licenses);
+              }
+            }
+          );
+        })
+        .catch(reject);
+    });
+  }
+
   async logCommand(userId, command) {
     return new Promise((resolve, reject) => {
       this.db.run(
@@ -222,6 +259,80 @@ class DatabaseManager {
           resolve(row ? row.count : 0);
         }
       });
+    });
+  }
+
+  async getUserUsageStats(userId, period = '30d') {
+    return new Promise((resolve, reject) => {
+      // Calculate start date based on period
+      const now = new Date();
+      let startDate = new Date();
+      
+      switch (period) {
+        case '7d':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case '30d':
+          startDate.setDate(now.getDate() - 30);
+          break;
+        case '90d':
+          startDate.setDate(now.getDate() - 90);
+          break;
+        case '1y':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          startDate.setDate(now.getDate() - 30);
+      }
+
+      // Get total validations for the period
+      this.getValidationCount(userId, startDate)
+        .then(totalValidations => {
+          // Get active licenses count (simplified - you may want to enhance this)
+          this.db.get(
+            'SELECT COUNT(DISTINCT license_key) as count FROM validations WHERE user_id = ? AND created_at >= ?',
+            [userId, startDate.toISOString()],
+            (err, row) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              const activeLicenses = row ? row.count : 0;
+
+              // Get most used license
+              this.db.get(
+                `SELECT license_key, COUNT(*) as count 
+                 FROM validations 
+                 WHERE user_id = ? AND created_at >= ? 
+                 GROUP BY license_key 
+                 ORDER BY count DESC 
+                 LIMIT 1`,
+                [userId, startDate.toISOString()],
+                (err, licenseRow) => {
+                  if (err) {
+                    reject(err);
+                    return;
+                  }
+
+                  const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
+                  const averageDaily = totalValidations / days;
+
+                  resolve({
+                    totalValidations,
+                    activeLicenses,
+                    mostUsedLicense: licenseRow ? licenseRow.license_key : 'N/A',
+                    averageDaily: Math.round(averageDaily * 100) / 100,
+                    peakDay: 'N/A', // Could be enhanced with date grouping
+                    trend: 'Stable', // Could be enhanced with comparison
+                    licenseBreakdown: [] // Could be enhanced with detailed breakdown
+                  });
+                }
+              );
+            }
+          );
+        })
+        .catch(reject);
     });
   }
 

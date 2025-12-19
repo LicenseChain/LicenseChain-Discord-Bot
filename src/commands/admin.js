@@ -2,6 +2,8 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 const LicenseChainClient = require('../client/LicenseChainClient');
 const Logger = require('../utils/Logger');
 const Utils = require('../utils/Utils');
+const PermissionManager = require('../utils/PermissionManager');
+const Validator = require('../utils/Validator');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -62,10 +64,19 @@ module.exports = {
                 .setDescription('Check API health')
         ),
 
-    async execute(interaction) {
+    async execute(interaction, licenseClient, dbManager) {
+        const logger = new Logger('AdminCommand');
+        
         try {
+            // Check permissions using PermissionManager
+            const permissionManager = new PermissionManager(interaction.client);
+            await permissionManager.requirePermission(interaction.member, 'admin');
+
             const subcommand = interaction.options.getSubcommand();
-            const client = new LicenseChainClient();
+            const client = licenseClient || new LicenseChainClient({
+                apiKey: process.env.LICENSE_CHAIN_API_KEY,
+                baseUrl: process.env.LICENSE_CHAIN_API_URL || 'https://api.licensechain.app'
+            });
 
             switch (subcommand) {
                 case 'stats':
@@ -87,11 +98,20 @@ module.exports = {
                     await interaction.reply({ content: 'Unknown subcommand!', ephemeral: true });
             }
         } catch (error) {
-            Logger.error('Error in admin command:', error);
-            await interaction.reply({ 
-                content: 'An error occurred while executing the admin command!', 
-                ephemeral: true 
-            });
+            logger.error('Error in admin command:', error);
+            
+            const errorMessage = error.message.includes('Insufficient permissions') 
+                ? error.message 
+                : 'An error occurred while executing the admin command!';
+            
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ content: errorMessage });
+            } else {
+                await interaction.reply({ 
+                    content: errorMessage, 
+                    flags: 64 // Ephemeral flag
+                });
+            }
         }
     },
 

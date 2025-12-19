@@ -22,6 +22,7 @@ module.exports = {
               { name: 'Last 90 days', value: '90d' },
               { name: 'Last year', value: '1y' }
             )
+        )
     )
     .addSubcommand(subcommand =>
       subcommand
@@ -43,6 +44,7 @@ module.exports = {
               { name: 'Last 90 days', value: '90d' },
               { name: 'Last year', value: '1y' }
             )
+        )
     )
     .addSubcommand(subcommand =>
       subcommand
@@ -58,6 +60,7 @@ module.exports = {
               { name: 'Last 90 days', value: '90d' },
               { name: 'Last year', value: '1y' }
             )
+        )
     ),
 
   async execute(interaction, licenseClient, dbManager) {

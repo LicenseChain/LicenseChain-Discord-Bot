@@ -2,7 +2,9 @@
  * License Management Commands
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const Validator = require('../utils/Validator');
+const PermissionManager = require('../utils/PermissionManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -53,10 +55,10 @@ module.exports = {
     try {
       switch (subcommand) {
         case 'validate':
-          await this.handleValidate(interaction, licenseClient);
+          await this.handleValidate(interaction, licenseClient, dbManager);
           break;
         case 'info':
-          await this.handleInfo(interaction, licenseClient);
+          await this.handleInfo(interaction, licenseClient, dbManager);
           break;
         case 'list':
           await this.handleList(interaction, licenseClient, dbManager);
@@ -79,21 +81,33 @@ module.exports = {
     }
   },
 
-  async handleValidate(interaction, licenseClient) {
-    const licenseKey = interaction.options.getString('key');
-
+  async handleValidate(interaction, licenseClient, dbManager) {
     await interaction.deferReply();
 
     try {
+      // Validate and sanitize input
+      const rawKey = interaction.options.getString('key');
+      const licenseKey = Validator.validateLicenseKey(rawKey);
+
+      // Log validation attempt
+      if (dbManager) {
+        await dbManager.logValidation(interaction.user.id, licenseKey, false); // Will update after validation
+      }
+
       const result = await licenseClient.validateLicense(licenseKey);
+
+      // Update validation log
+      if (dbManager && result.valid) {
+        await dbManager.logValidation(interaction.user.id, licenseKey, true);
+      }
 
       const embed = new EmbedBuilder()
         .setColor(result.valid ? '#00ff00' : '#ff0000')
         .setTitle(result.valid ? '✅ License Valid' : '❌ License Invalid')
         .addFields(
-          { name: 'License Key', value: `\`${licenseKey}\``, inline: true },
+          { name: 'License Key', value: `\`${Validator.sanitizeForDisplay(licenseKey)}\``, inline: true },
           { name: 'Status', value: result.valid ? 'Active' : 'Invalid', inline: true },
-          { name: 'Message', value: result.message || 'No additional information', inline: false }
+          { name: 'Message', value: Validator.sanitizeForDisplay(result.message || 'No additional information'), inline: false }
         )
         .setTimestamp();
 
@@ -118,11 +132,13 @@ module.exports = {
   },
 
   async handleInfo(interaction, licenseClient) {
-    const licenseKey = interaction.options.getString('key');
-
     await interaction.deferReply();
 
     try {
+      // Validate and sanitize input
+      const rawKey = interaction.options.getString('key');
+      const licenseKey = Validator.validateLicenseKey(rawKey);
+
       // First validate the license to get basic info
       const validation = await licenseClient.validateLicense(licenseKey);
       
@@ -144,10 +160,10 @@ module.exports = {
         .setColor('#0099ff')
         .setTitle('📋 License Information')
         .addFields(
-          { name: 'License Key', value: `\`${licenseKey}\``, inline: true },
-          { name: 'Application', value: licenseInfo.applicationName || 'Unknown', inline: true },
-          { name: 'Status', value: licenseInfo.status || 'Unknown', inline: true },
-          { name: 'Plan', value: licenseInfo.plan || 'Unknown', inline: true },
+          { name: 'License Key', value: `\`${Validator.sanitizeForDisplay(licenseKey)}\``, inline: true },
+          { name: 'Application', value: Validator.sanitizeForDisplay(licenseInfo.applicationName || 'Unknown'), inline: true },
+          { name: 'Status', value: Validator.sanitizeForDisplay(licenseInfo.status || 'Unknown'), inline: true },
+          { name: 'Plan', value: Validator.sanitizeForDisplay(licenseInfo.plan || 'Unknown'), inline: true },
           { name: 'Price', value: `$${licenseInfo.price || 0}`, inline: true },
           { name: 'Created', value: licenseInfo.createdAt ? new Date(licenseInfo.createdAt).toLocaleDateString() : 'Unknown', inline: true }
         )
@@ -181,13 +197,19 @@ module.exports = {
   },
 
   async handleList(interaction, licenseClient, dbManager) {
-    const page = interaction.options.getInteger('page') || 1;
-    const userId = interaction.user.id;
-
     await interaction.deferReply();
 
     try {
+      // Validate page number
+      const rawPage = interaction.options.getInteger('page') || 1;
+      const page = Validator.validateInteger(rawPage, 1, 1000);
+      const userId = Validator.validateUserId(interaction.user.id);
+
       // Get user's licenses from database or API
+      if (!dbManager) {
+        throw new Error('Database manager not available');
+      }
+
       const licenses = await dbManager.getUserLicenses(userId);
       
       if (!licenses || licenses.length === 0) {
@@ -255,7 +277,23 @@ module.exports = {
   },
 
   async handleCreate(interaction) {
-    const modal = new (require('../handlers/CommandHandler'))().createLicenseModal();
-    await interaction.showModal(modal);
+    try {
+      // Check permissions - only admins can create licenses
+      const permissionManager = new PermissionManager(interaction.client);
+      await permissionManager.requirePermission(interaction.member, 'admin');
+
+      const CommandHandler = require('../handlers/CommandHandler');
+      const commandHandler = new CommandHandler(interaction.client, null, null);
+      const modal = commandHandler.createLicenseModal();
+      await interaction.showModal(modal);
+    } catch (error) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('❌ Permission Denied')
+        .setDescription(error.message)
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+    }
   }
 };

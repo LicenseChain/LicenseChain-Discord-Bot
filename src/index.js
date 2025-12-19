@@ -19,6 +19,7 @@ const CommandHandler = require('./handlers/CommandHandler');
 const EventHandler = require('./handlers/EventHandler');
 const DatabaseManager = require('./database/DatabaseManager');
 const Scheduler = require('./utils/Scheduler');
+const PermissionManager = require('./utils/PermissionManager');
 
 // Configure logger
 const logger = winston.createLogger({
@@ -59,6 +60,7 @@ const licenseClient = new LicenseChainClient({
 });
 
 const dbManager = new DatabaseManager();
+const permissionManager = new PermissionManager(client);
 const commandHandler = new CommandHandler(client, licenseClient, dbManager);
 const eventHandler = new EventHandler(client, licenseClient, dbManager);
 const scheduler = new Scheduler(client, licenseClient, dbManager);

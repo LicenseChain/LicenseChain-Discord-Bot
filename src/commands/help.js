@@ -24,7 +24,7 @@ module.exports = {
             console.error('Error in help command:', error);
             await interaction.reply({ 
                 content: 'An error occurred while showing help!', 
-                ephemeral: true 
+                flags: 64 // Ephemeral flag
             });
         }
     },

@@ -52,9 +52,83 @@ docker run -p 3000:3000 licensechain-discord-bot
 4. Configure environment variables
 5. Start the bot: `npm start`
 
-## ðŸš€ Quick Start
+## 🚀 Quick Start
 
-### Basic Setup
+### Step 1: Create a Discord Bot
+
+Before you can use this bot, you need to create a Discord application and bot. Follow these steps:
+
+#### 1.1 Create a Discord Application
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **"New Application"** in the top right corner
+3. Enter a name for your application (e.g., "LicenseChain Bot")
+4. Click **"Create"**
+
+#### 1.2 Create a Bot
+
+1. In your application, navigate to the **"Bot"** section in the left sidebar
+2. Click **"Add Bot"** and confirm
+3. Your bot has been created! You'll see the bot's username and icon
+
+#### 1.3 Get Your Bot Token
+
+1. Still in the **"Bot"** section, scroll down to find the **"Token"** section
+2. Click **"Reset Token"** if this is your first time, or **"Copy"** to copy your existing token
+3. **⚠️ IMPORTANT**: Keep this token secret! Never share it or commit it to public repositories
+4. Save this token - you'll need it for your `.env` file
+
+#### 1.4 Enable Privileged Gateway Intents
+
+The bot requires certain privileged intents to function properly. In the **"Bot"** section:
+
+1. Scroll down to **"Privileged Gateway Intents"**
+2. Enable the following intents:
+   - ✅ **Message Content Intent** - Required for reading message content
+   - ✅ **Server Members Intent** - Required for accessing guild member information
+   - ✅ **Presence Intent** - Required for presence update events
+
+**Note**: These intents require verification if your bot reaches 100+ servers.
+
+#### 1.5 Set Up OAuth2 and Permissions
+
+1. Navigate to the **"OAuth2"** → **"URL Generator"** section
+2. Under **"Scopes"**, select:
+   - ✅ **`bot`** - Required to add the bot to servers
+   - ✅ **`applications.commands`** - Required for slash commands
+3. Under **"Bot Permissions"**, select the following permissions:
+
+   **General Permissions:**
+   - ✅ View Channels
+   - ✅ Send Messages
+   - ✅ Read Message History
+   - ✅ Embed Links
+   - ✅ Attach Files
+   - ✅ Use Slash Commands
+   - ✅ Manage Messages (optional, for message management)
+   - ✅ Add Reactions (optional, for interactive features)
+
+   **Text Permissions:**
+   - ✅ Send Messages
+   - ✅ Send Messages in Threads
+   - ✅ Read Message History
+   - ✅ Use Slash Commands
+   - ✅ Embed Links
+   - ✅ Attach Files
+   - ✅ Add Reactions
+
+4. Copy the generated **"Generated URL"** at the bottom of the page
+5. Open this URL in your browser to invite the bot to your Discord server
+6. Select the server where you want to add the bot and authorize it
+
+#### 1.6 Configure Bot Settings (Optional)
+
+In the **"Bot"** section, you can also configure:
+
+- **Public Bot**: Enable if you want others to be able to add your bot
+- **Requires OAuth2 Code Grant**: Usually leave this disabled unless you have specific OAuth2 requirements
+
+### Step 2: Install and Configure the Bot
 
 ```bash
 # Clone the repository
@@ -68,40 +142,77 @@ npm install
 cp .env.example .env
 
 # Edit environment variables
-nano .env
-
-# Start the bot
-npm start
+nano .env  # or use your preferred text editor
 ```
 
-### Environment Configuration
+### Step 3: Environment Configuration
 
-Create a `.env` file with the following variables:
+Edit your `.env` file with the following variables:
 
 ```env
 # Discord Configuration
-DISCORD_TOKEN=your-discord-bot-token
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_GUILD_ID=your-discord-guild-id
+# Get your bot token from: https://discord.com/developers/applications
+DISCORD_TOKEN=your-discord-bot-token-here
+# Command prefix for text-based commands (default: !)
+DISCORD_PREFIX=!
 
-# LicenseChain API
-LICENSECHAIN_API_KEY=your-api-key
-LICENSECHAIN_APP_NAME=your-app-name
+# LicenseChain API Configuration
+# Get your API key from: https://licensechain.app
+LICENSE_CHAIN_API_KEY=your-licensechain-api-key-here
+LICENSE_CHAIN_API_URL=https://api.licensechain.app
+LICENSECHAIN_APP_NAME=your-app-name-here
 LICENSECHAIN_APP_VERSION=1.0.0
-LICENSECHAIN_BASE_URL=https://api.licensechain.app
-
-# Bot Configuration
-BOT_PREFIX=!
-BOT_OWNER_ID=your-discord-user-id
-BOT_DEBUG=false
 
 # Database Configuration
-DATABASE_URL=your-database-url
+# SQLite database path (default: data/bot.db)
+DATABASE_URL=data/bot.db
 
-# Webhook Configuration
-WEBHOOK_URL=your-webhook-url
-WEBHOOK_SECRET=your-webhook-secret
+# Server Configuration
+# Port for health check server (default: 3004)
+PORT=3004
+
+# Logging Configuration
+# Log level: error, warn, info, debug (default: info)
+LOG_LEVEL=info
+
+# Node Environment
+# Set to 'production' for production, 'development' for development
+NODE_ENV=development
 ```
+
+### Step 4: Start the Bot
+
+```bash
+# Start the bot
+npm start
+
+# Or for development with auto-reload
+npm run dev
+```
+
+You should see a message indicating the bot has logged in successfully!
+
+## 📋 Required Discord Bot Settings Summary
+
+### Required Scopes
+- ✅ `bot` - Required to add the bot to servers
+- ✅ `applications.commands` - Required for slash commands
+
+### Required Privileged Gateway Intents
+- ✅ **Message Content Intent** - Required for reading message content
+- ✅ **Server Members Intent** - Required for accessing guild member information  
+- ✅ **Presence Intent** - Required for presence update events
+
+### Required Bot Permissions
+- ✅ View Channels
+- ✅ Send Messages
+- ✅ Read Message History
+- ✅ Embed Links
+- ✅ Attach Files
+- ✅ Use Slash Commands
+- ✅ Add Reactions (recommended)
+- ✅ Send Messages in Threads (recommended)
+- ✅ Manage Messages (optional, for advanced features)
 
 ## ðŸ“š Commands
 
@@ -279,17 +390,60 @@ DATABASE_URL=sqlite://./database.sqlite
 
 ### Authorization
 
-- Command-level permissions
-- User role validation
-- Admin-only commands
-- Owner-only functions
+The bot uses a **custom role-based permission system** with three levels:
+
+1. **Owner** - Bot owner (configured via `BOT_OWNER_ID` in `.env`)
+   - Highest level of access
+   - Can execute owner-only commands
+   - Configured by Discord User ID
+
+2. **Admin** - Server administrators or custom admin roles
+   - Can execute admin commands
+   - Detected via:
+     - Discord's built-in Administrator permission, OR
+     - Custom admin roles (configured via `ADMIN_ROLE_IDS` in `.env`)
+
+3. **User** - Regular users
+   - Default permission level
+   - Can execute public commands
+
+**Permission Hierarchy:** Owner > Admin > User
+
+**Configuration:**
+```env
+# Set bot owner (required for owner commands)
+BOT_OWNER_ID=your-discord-user-id
+
+# Optional: Set custom admin role IDs (comma-separated)
+ADMIN_ROLE_IDS=123456789012345678,987654321098765432
+```
 
 ### Data Protection
 
-- Input validation and sanitization
-- SQL injection prevention
-- XSS protection
-- Secure logging
+The bot implements comprehensive security measures:
+
+- **Input Validation** - All user inputs are validated before processing
+  - License keys: Format validation (alphanumeric, dashes, underscores, 10-100 chars)
+  - User IDs: Discord snowflake validation (17-19 digits)
+  - Email addresses: Format validation
+  - URLs: Protocol validation (HTTP/HTTPS only)
+  - Numbers: Range validation with min/max limits
+
+- **XSS Protection** - All text outputs are sanitized
+  - HTML tags removed (`<`, `>`)
+  - JavaScript protocols blocked (`javascript:`)
+  - Event handlers removed (`onclick=`, etc.)
+  - Character limits enforced (2000 chars for strings, 1024 for embeds)
+
+- **SQL Injection Prevention** - Parameterized queries with additional sanitization
+  - All database queries use parameterized statements
+  - Additional pattern filtering for SQL keywords
+  - Special characters sanitized
+
+- **Secure Logging** - Sensitive data is not logged
+  - API keys and tokens excluded from logs
+  - User data sanitized before logging
+  - Error messages don't expose internal details
 
 ## ðŸ“Š Analytics and Monitoring
 
