@@ -447,5 +447,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 All endpoints automatically use the /v1 prefix when connecting to https://api.licensechain.app.
 
 ### Base URL
-- **Production**: https://api.licensechain.app/v1\n- **Development**: https://api.licensechain.app/v1\n\n### Available Endpoints\n\n| Method | Endpoint | Description |\n|--------|----------|-------------|\n| GET | /v1/health | Health check |\n| POST | /v1/auth/login | User login |\n| POST | /v1/auth/register | User registration |\n| GET | /v1/apps | List applications |\n| POST | /v1/apps | Create application |\n| GET | /v1/licenses | List licenses |\n| POST | /v1/licenses/verify | Verify license |\n| GET | /v1/webhooks | List webhooks |\n| POST | /v1/webhooks | Create webhook |\n| GET | /v1/analytics | Get analytics |\n\n**Note**: The SDK automatically prepends /v1 to all endpoints, so you only need to specify the path (e.g., /auth/login instead of /v1/auth/login).
+- **Production**: https://api.licensechain.app/v1
+- **Development**: https://api.licensechain.app/v1
+
+### Available Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /v1/health | Health check |
+| POST | /v1/auth/login | User login |
+| POST | /v1/auth/register | User registration |
+| GET | /v1/apps | List applications |
+| POST | /v1/apps | Create application |
+| GET | /v1/licenses | List licenses |
+| POST | /v1/licenses/verify | Verify license |
+| GET | /v1/webhooks | List webhooks |
+| POST | /v1/webhooks | Create webhook |
+| GET | /v1/analytics | Get analytics |
+
+**Note**: The SDK automatically prepends /v1 to all endpoints, so you only need to specify the path (e.g., /auth/login instead of /v1/auth/login).
 
