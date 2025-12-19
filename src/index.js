@@ -3,6 +3,9 @@
  * Advanced Discord integration for license management
  */
 
+// Load environment variables first
+require('dotenv').config();
+
 const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -74,9 +77,16 @@ client.once(Events.ClientReady, async () => {
   // Initialize database
   await dbManager.initialize();
   
-  // Load commands and events
+  // Load commands
   await commandHandler.loadCommands();
+  
+  // Load events
   await eventHandler.loadEvents();
+  
+  // Set up interaction handler
+  client.on(Events.InteractionCreate, async (interaction) => {
+    await commandHandler.handleInteraction(interaction);
+  });
   
   // Start scheduled tasks
   scheduler.startScheduledTasks();
@@ -108,18 +118,25 @@ app.get('/health', (req, res) => {
     bot: client.user ? 'online' : 'offline',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: process.env.LICENSECHAIN_APP_VERSION || '1.0.0'
   });
 });
 
-app.get('/stats', (req, res) => {
-  res.json({
-    guilds: client.guilds.cache.size,
-    users: client.users.cache.size,
-    commands: client.commands.size,
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  });
+app.get('/stats', async (req, res) => {
+  try {
+    const stats = await dbManager.getBotStats();
+    res.json({
+      guilds: client.guilds.cache.size,
+      users: client.users.cache.size,
+      commands: client.commands.size,
+      database: stats,
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      version: process.env.LICENSECHAIN_APP_VERSION || '1.0.0'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
 });
 
 app.listen(PORT, () => {

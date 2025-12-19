@@ -26,26 +26,26 @@
     "axios": "^1.6.2",
     "dotenv": "^16.3.1",
     "winston": "^3.11.0",
-    "crypto": "^1.0.1",
     "moment": "^2.29.4",
     "lodash": "^4.17.21",
     "node-cron": "^3.0.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
     "jest": "^29.7.0",
-    "eslint": "^8.55.0"
+    "eslint": "^9.18.0"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/licensechain/discord-bot.git"
+    "url": "https://github.com/LicenseChain/LicenseChain-Discord-Bot.git"
   },
   "bugs": {
-    "url": "https://github.com/licensechain/discord-bot/issues"
+    "url": "https://github.com/LicenseChain/LicenseChain-Discord-Bot/issues"
   },
   "homepage": "https://licensechain.app"
 }

@@ -1,17 +1,23 @@
 const { Events } = require('discord.js');
 const Logger = require('../utils/Logger');
+const logger = new Logger('EventHandler');
 
 class EventHandler {
-    constructor(client) {
+    constructor(client, licenseClient, dbManager) {
         this.client = client;
+        this.licenseClient = licenseClient;
+        this.dbManager = dbManager;
+    }
+
+    async loadEvents() {
         this.setupEventHandlers();
     }
 
     setupEventHandlers() {
         // Client ready event
         this.client.once(Events.ClientReady, (readyClient) => {
-            Logger.success(`Discord bot is ready! Logged in as ${readyClient.user.tag}`);
-            Logger.info(`Bot is serving ${readyClient.guilds.cache.size} guilds`);
+            logger.info(`Discord bot is ready! Logged in as ${readyClient.user.tag}`);
+            logger.info(`Bot is serving ${readyClient.guilds.cache.size} guilds`);
             
             // Set bot status
             this.client.user.setPresence({
@@ -25,38 +31,38 @@ class EventHandler {
 
         // Error handling
         this.client.on(Events.Error, (error) => {
-            Logger.error('Discord client error:', error);
+            logger.error('Discord client error:', error);
         });
 
         // Warning handling
         this.client.on(Events.Warn, (warning) => {
-            Logger.warn('Discord client warning:', warning);
+            logger.warn('Discord client warning:', warning);
         });
 
         // Debug handling
         this.client.on(Events.Debug, (info) => {
-            Logger.debug('Discord client debug:', info);
+            logger.debug('Discord client debug:', info);
         });
 
         // Guild join event
         this.client.on(Events.GuildCreate, (guild) => {
-            Logger.info(`Bot joined guild: ${guild.name} (${guild.id})`);
-            Logger.info(`Guild member count: ${guild.memberCount}`);
+            logger.info(`Bot joined guild: ${guild.name} (${guild.id})`);
+            logger.info(`Guild member count: ${guild.memberCount}`);
         });
 
         // Guild leave event
         this.client.on(Events.GuildDelete, (guild) => {
-            Logger.info(`Bot left guild: ${guild.name} (${guild.id})`);
+            logger.info(`Bot left guild: ${guild.name} (${guild.id})`);
         });
 
         // Member join event
         this.client.on(Events.GuildMemberAdd, (member) => {
-            Logger.info(`New member joined ${member.guild.name}: ${member.user.tag}`);
+            logger.info(`New member joined ${member.guild.name}: ${member.user.tag}`);
         });
 
         // Member leave event
         this.client.on(Events.GuildMemberRemove, (member) => {
-            Logger.info(`Member left ${member.guild.name}: ${member.user.tag}`);
+            logger.info(`Member left ${member.guild.name}: ${member.user.tag}`);
         });
 
         // Message create event (for command handling)
@@ -89,9 +95,9 @@ class EventHandler {
 
                 // Execute command
                 await command.execute(message, args);
-                Logger.info(`Command executed: ${commandName} by ${message.author.tag} in ${message.guild?.name || 'DM'}`);
+                logger.info(`Command executed: ${commandName} by ${message.author.tag} in ${message.guild?.name || 'DM'}`);
             } catch (error) {
-                Logger.error(`Error executing command ${commandName}:`, error);
+                logger.error(`Error executing command ${commandName}:`, error);
                 
                 const errorMessage = 'There was an error while executing this command!';
                 if (message.replied || message.deferred) {
@@ -128,9 +134,9 @@ class EventHandler {
 
                 // Execute command
                 await command.execute(interaction);
-                Logger.info(`Slash command executed: ${interaction.commandName} by ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
+                logger.info(`Slash command executed: ${interaction.commandName} by ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
             } catch (error) {
-                Logger.error(`Error executing slash command ${interaction.commandName}:`, error);
+                logger.error(`Error executing slash command ${interaction.commandName}:`, error);
                 
                 const errorMessage = 'There was an error while executing this command!';
                 if (interaction.replied || interaction.deferred) {
@@ -144,49 +150,27 @@ class EventHandler {
         // Voice state update event
         this.client.on(Events.VoiceStateUpdate, (oldState, newState) => {
             // Handle voice state changes if needed
-            Logger.debug(`Voice state update for ${newState.member.user.tag}`);
+            logger.debug(`Voice state update for ${newState.member?.user?.tag || 'unknown'}`);
         });
 
         // Channel create event
         this.client.on(Events.ChannelCreate, (channel) => {
-            Logger.info(`Channel created: ${channel.name} in ${channel.guild?.name || 'DM'}`);
+            logger.info(`Channel created: ${channel.name} in ${channel.guild?.name || 'DM'}`);
         });
 
         // Channel delete event
         this.client.on(Events.ChannelDelete, (channel) => {
-            Logger.info(`Channel deleted: ${channel.name} in ${channel.guild?.name || 'DM'}`);
+            logger.info(`Channel deleted: ${channel.name} in ${channel.guild?.name || 'DM'}`);
         });
 
         // Role create event
         this.client.on(Events.RoleCreate, (role) => {
-            Logger.info(`Role created: ${role.name} in ${role.guild.name}`);
+            logger.info(`Role created: ${role.name} in ${role.guild.name}`);
         });
 
         // Role delete event
         this.client.on(Events.RoleDelete, (role) => {
-            Logger.info(`Role deleted: ${role.name} in ${role.guild.name}`);
-        });
-
-        // Process exit handling
-        process.on('SIGINT', () => {
-            Logger.info('Received SIGINT, shutting down gracefully...');
-            this.client.destroy();
-            process.exit(0);
-        });
-
-        process.on('SIGTERM', () => {
-            Logger.info('Received SIGTERM, shutting down gracefully...');
-            this.client.destroy();
-            process.exit(0);
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            Logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-        });
-
-        process.on('uncaughtException', (error) => {
-            Logger.error('Uncaught Exception:', error);
-            process.exit(1);
+            logger.info(`Role deleted: ${role.name} in ${role.guild.name}`);
         });
     }
 }
