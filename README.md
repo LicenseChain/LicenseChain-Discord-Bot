@@ -7,18 +7,18 @@
 
 Official Discord Bot for LicenseChain - License management and customer support through Discord.
 
-## ðŸš€ Features
+## Features
 
-- **ðŸ” License Management** - Validate, create, and manage licenses
-- **ðŸ‘¤ User Support** - Handle customer inquiries and support tickets
-- **ðŸ“Š Analytics** - View usage statistics and performance metrics
-- **ðŸ”” Notifications** - Real-time license events and alerts
-- **ðŸŽ« Ticket System** - Create and manage support tickets
-- **ðŸ“ˆ Reporting** - Generate reports and analytics
-- **ðŸ›¡ï¸ Security** - Secure authentication and authorization
-- **ðŸ› ï¸ Easy Setup** - Simple configuration and deployment
+- **License Management** - Validate, create, and manage licenses
+- **User Support** - Handle customer inquiries and support tickets
+- **Analytics** - View usage statistics and performance metrics
+- **Notifications** - Real-time license events and alerts
+- **Ticket System** - Create and manage support tickets
+- **Reporting** - Generate reports and analytics
+- **Security** - Secure authentication and authorization
+- **Easy Setup** - Simple configuration and deployment
 
-## ðŸ“¦ Installation
+## Installation
 
 ### Method 1: npm (Recommended)
 
@@ -382,7 +382,7 @@ You should see a message indicating the bot has logged in successfully!
 !admin logs [lines]
 ```
 
-## ðŸ”§ Configuration
+## Configuration
 
 ### Bot Configuration
 
@@ -450,7 +450,7 @@ DATABASE_URL=mysql://username:password@localhost:3306/licensechain
 DATABASE_URL=sqlite://./database.sqlite
 ```
 
-## ðŸ›¡ï¸ Security Features
+## Security Features
 
 ### Authentication
 
@@ -516,7 +516,7 @@ The bot implements comprehensive security measures:
   - User data sanitized before logging
   - Error messages don't expose internal details
 
-## ðŸ“Š Analytics and Monitoring
+## Analytics and Monitoring
 
 ### Command Analytics
 
