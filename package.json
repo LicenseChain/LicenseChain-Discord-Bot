@@ -23,11 +23,11 @@
   "license": "Elastic License 2.0",
   "dependencies": {
     "discord.js": "^14.14.1",
-    "axios": "^1.6.2",
+    "axios": "^1.13.3",
     "dotenv": "^17.2.3",
     "winston": "^3.11.0",
     "moment": "^2.29.4",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "node-cron": "^4.2.1",
     "express": "^5.2.1",
     "sqlite3": "^5.1.7"
