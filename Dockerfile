@@ -4,12 +4,7 @@ FROM node:22-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for sqlite3
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# No native build deps needed (pg driver; DB is Supabase/Postgres via DATABASE_URL)
 
 # Copy package files
 COPY package.json package-lock.json* ./

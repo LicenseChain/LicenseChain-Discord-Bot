@@ -1,688 +1,368 @@
 /**
  * Database Manager for Discord Bot
- * Handles database operations and connections
+ * Uses Supabase/PostgreSQL tg_bot_* tables. Set DATABASE_URL to Postgres connection string.
  */
 
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const { Pool } = require('pg');
 const Logger = require('../utils/Logger');
+
+const PREFIX = 'tg_bot_';
+
+function getConnectionConfig() {
+  const url = process.env.DATABASE_URL || '';
+  if (!url || url.startsWith('sqlite') || url.endsWith('.db')) {
+    throw new Error('DATABASE_URL must be a PostgreSQL connection string (e.g. Supabase). SQLite is no longer supported.');
+  }
+  const opts = { connectionString: url };
+  if (url.includes('pooler.supabase.com') || url.includes(':6543')) {
+    if (!url.includes('pgbouncer=true')) opts.connectionString += (url.includes('?') ? '&' : '?') + 'pgbouncer=true';
+    opts.ssl = { rejectUnauthorized: false };
+  }
+  return opts;
+}
 
 class DatabaseManager {
   constructor() {
-    this.db = null;
+    this.pool = null;
     this.logger = new Logger('DatabaseManager');
-    this.dbPath = process.env.DATABASE_URL || path.join(__dirname, '../../data/bot.db');
+    this.platform = 'discord';
+    this.platformIdColumn = 'discord_id';
   }
 
   async initialize() {
     try {
-      // Ensure data directory exists with proper permissions
-      const dataDir = path.dirname(this.dbPath);
-      if (!fs.existsSync(dataDir)) {
-        try {
-          fs.mkdirSync(dataDir, { recursive: true, mode: 0o755 });
-        } catch (mkdirError) {
-          // If mkdir fails, try to continue - might be permission issue
-          this.logger.warn('Could not create data directory:', mkdirError.message);
-        }
-      }
-
-      // Try to set permissions if possible
-      try {
-        if (fs.existsSync(dataDir)) {
-          fs.chmodSync(dataDir, 0o755);
-        }
-      } catch (chmodError) {
-        // Ignore chmod errors - might not have permission
-      }
-
-      // Open database connection with promise wrapper
-      await new Promise((resolve, reject) => {
-        this.db = new sqlite3.Database(this.dbPath, (err) => {
-          if (err) {
-            // If permission error, try to create database in a writable location
-            if (err.code === 'SQLITE_CANTOPEN' || err.errno === 14) {
-              this.logger.warn('Cannot open database at configured path, trying fallback location');
-              // Try to use a fallback path in /tmp or current directory
-              const fallbackPath = path.join(process.cwd(), 'bot.db');
-              this.dbPath = fallbackPath;
-              this.db = new sqlite3.Database(fallbackPath, (fallbackErr) => {
-                if (fallbackErr) {
-                  this.logger.error('Error opening database at fallback location:', fallbackErr);
-                  reject(fallbackErr);
-                } else {
-                  this.logger.info(`Database connected (fallback): ${fallbackPath}`);
-                  resolve();
-                }
-              });
-            } else {
-              this.logger.error('Error opening database:', err);
-              reject(err);
-            }
-          } else {
-            this.logger.info(`Database connected: ${this.dbPath}`);
-            resolve();
-          }
-        });
-      });
-
-      // Create tables
-      await this.createTables();
-
+      const config = getConnectionConfig();
+      this.pool = new Pool(config);
+      await this.pool.query('SELECT 1');
+      this.logger.info('Database connected (PostgreSQL tg_bot_* tables)');
       return true;
     } catch (error) {
       this.logger.error('Failed to initialize database:', error);
-      // Don't throw - allow bot to continue without database
-      this.logger.warn('Bot will continue without database. Some features may not work.');
       return false;
     }
   }
 
-  async createTables() {
-    return new Promise((resolve, reject) => {
-      const queries = [
-        `CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          discord_id TEXT UNIQUE NOT NULL,
-          username TEXT,
-          discriminator TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS licenses (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          license_key TEXT UNIQUE NOT NULL,
-          status TEXT DEFAULT 'active',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
-        `CREATE TABLE IF NOT EXISTS commands (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          command TEXT NOT NULL,
-          executed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
-        `CREATE TABLE IF NOT EXISTS bot_stats (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          total_users INTEGER DEFAULT 0,
-          total_licenses INTEGER DEFAULT 0,
-          total_commands INTEGER DEFAULT 0,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS tickets (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          ticket_id TEXT UNIQUE NOT NULL,
-          user_id INTEGER NOT NULL,
-          subject TEXT NOT NULL,
-          description TEXT NOT NULL,
-          status TEXT DEFAULT 'open',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
-        `CREATE TABLE IF NOT EXISTS bot_status (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          status TEXT DEFAULT 'online',
-          updated_by TEXT,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS user_settings (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER UNIQUE NOT NULL,
-          notifications_enabled INTEGER DEFAULT 1,
-          analytics_enabled INTEGER DEFAULT 1,
-          language TEXT DEFAULT 'en',
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
-        `CREATE TABLE IF NOT EXISTS validations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          license_key TEXT NOT NULL,
-          is_valid INTEGER DEFAULT 1,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )`
-      ];
-
-      let completed = 0;
-      queries.forEach((query) => {
-        this.db.run(query, (err) => {
-          if (err) {
-            this.logger.error('Error creating table:', err);
-            reject(err);
-            return;
-          }
-          completed++;
-          if (completed === queries.length) {
-            this.logger.info('Database tables created successfully');
-            resolve();
-          }
-        });
-      });
-    });
+  async _resolveUserId(platformUserId) {
+    const id = platformUserId == null ? null : String(platformUserId);
+    if (id === null || id === '') return null;
+    const r = await this.pool.query(
+      `SELECT id FROM ${PREFIX}users WHERE ${this.platformIdColumn} = $1`,
+      [id]
+    );
+    return r.rows[0] ? r.rows[0].id : null;
   }
 
   async getUser(discordId) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM users WHERE discord_id = ?',
-        [discordId],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row);
-          }
-        }
-      );
-    });
+    const id = String(discordId);
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}users WHERE ${this.platformIdColumn} = $1`,
+      [id]
+    );
+    return r.rows[0] ? this._rowUser(r.rows[0]) : null;
+  }
+
+  _rowUser(row) {
+    return {
+      id: row.id,
+      discord_id: row.discord_id,
+      username: row.username,
+      discriminator: row.discriminator,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
   }
 
   async createUser(userData) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        `INSERT INTO users (discord_id, username, discriminator)
-         VALUES (?, ?, ?)`,
-        [userData.id, userData.username, userData.discriminator],
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ id: this.lastID, ...userData });
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `INSERT INTO ${PREFIX}users (discord_id, username, discriminator)
+       VALUES ($1, $2, $3)
+       RETURNING id, discord_id, username, discriminator, created_at, updated_at`,
+      [String(userData.id), userData.username || null, userData.discriminator != null ? String(userData.discriminator) : null]
+    );
+    const row = r.rows[0];
+    return { id: row.id, ...userData };
   }
 
   async getOrCreateUser(userData) {
     let user = await this.getUser(userData.id);
-    if (!user) {
-      user = await this.createUser(userData);
-    }
+    if (!user) user = await this.createUser(userData);
     return user;
   }
 
   async getUserLicenses(discordId) {
-    return new Promise((resolve, reject) => {
-      // First get the user
-      this.getUser(discordId)
-        .then(user => {
-          if (!user) {
-            resolve([]);
-            return;
-          }
-
-          // Get licenses for this user
-          this.db.all(
-            'SELECT * FROM licenses WHERE user_id = ? ORDER BY created_at DESC',
-            [user.id],
-            (err, rows) => {
-              if (err) {
-                reject(err);
-              } else {
-                // Format licenses for return
-                const licenses = rows.map(row => ({
-                  key: row.license_key,
-                  status: row.status,
-                  createdAt: row.created_at,
-                  updatedAt: row.updated_at,
-                  applicationName: 'LicenseChain', // Default, can be enhanced
-                  plan: 'standard', // Default, can be enhanced
-                  expiresAt: null // Can be enhanced with additional fields
-                }));
-                resolve(licenses);
-              }
-            }
-          );
-        })
-        .catch(reject);
-    });
+    const userId = await this._resolveUserId(discordId);
+    if (userId == null) return [];
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}licenses WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    return r.rows.map(row => ({
+      key: row.license_key,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      applicationName: 'LicenseChain',
+      plan: 'standard',
+      expiresAt: null
+    }));
   }
 
-  async logCommand(userId, command) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'INSERT INTO commands (user_id, command) VALUES (?, ?)',
-        [userId, command],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        }
-      );
-    });
+  async logCommand(platformUserId, command) {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) return;
+    await this.pool.query(
+      `INSERT INTO ${PREFIX}commands (user_id, command) VALUES ($1, $2)`,
+      [userId, command]
+    );
   }
 
-  async logValidation(userId, licenseKey, isValid) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'INSERT INTO validations (user_id, license_key, is_valid) VALUES (?, ?, ?)',
-        [userId, licenseKey, isValid ? 1 : 0],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        }
-      );
-    });
+  async logValidation(platformUserId, licenseKey, isValid) {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) return;
+    await this.pool.query(
+      `INSERT INTO ${PREFIX}validations (user_id, license_key, is_valid) VALUES ($1, $2, $3)`,
+      [userId, licenseKey, isValid ? 1 : 0]
+    );
   }
 
-  async getValidationCount(userId = null, startDate = null) {
-    return new Promise((resolve, reject) => {
-      let query = userId 
-        ? 'SELECT COUNT(*) as count FROM validations WHERE user_id = ?'
-        : 'SELECT COUNT(*) as count FROM validations';
-      const params = userId ? [userId] : [];
-      
-      if (startDate) {
-        query += userId ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
-        params.push(startDate.toISOString());
-      }
-      
-      this.db.get(query, params, (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row ? row.count : 0);
-        }
-      });
-    });
+  async getValidationCount(platformUserId = null, startDate = null) {
+    let query = `SELECT COUNT(*)::int AS count FROM ${PREFIX}validations`;
+    const params = [];
+    if (platformUserId != null) {
+      const userId = await this._resolveUserId(platformUserId);
+      if (userId == null) return 0;
+      query += ' WHERE user_id = $1';
+      params.push(userId);
+    }
+    if (startDate) {
+      query += (params.length ? ' AND' : ' WHERE') + ' created_at >= $' + (params.length + 1);
+      params.push(startDate);
+    }
+    const r = await this.pool.query(query, params);
+    return r.rows[0] ? r.rows[0].count : 0;
   }
 
-  async getUserUsageStats(userId, period = '30d') {
-    return new Promise((resolve, reject) => {
-      // Calculate start date based on period
-      const now = new Date();
-      let startDate = new Date();
-      
-      switch (period) {
-        case '7d':
-          startDate.setDate(now.getDate() - 7);
-          break;
-        case '30d':
-          startDate.setDate(now.getDate() - 30);
-          break;
-        case '90d':
-          startDate.setDate(now.getDate() - 90);
-          break;
-        case '1y':
-          startDate.setFullYear(now.getFullYear() - 1);
-          break;
-        default:
-          startDate.setDate(now.getDate() - 30);
-      }
-
-      // Get total validations for the period
-      this.getValidationCount(userId, startDate)
-        .then(totalValidations => {
-          // Get active licenses count (simplified - you may want to enhance this)
-          this.db.get(
-            'SELECT COUNT(DISTINCT license_key) as count FROM validations WHERE user_id = ? AND created_at >= ?',
-            [userId, startDate.toISOString()],
-            (err, row) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-
-              const activeLicenses = row ? row.count : 0;
-
-              // Get most used license
-              this.db.get(
-                `SELECT license_key, COUNT(*) as count 
-                 FROM validations 
-                 WHERE user_id = ? AND created_at >= ? 
-                 GROUP BY license_key 
-                 ORDER BY count DESC 
-                 LIMIT 1`,
-                [userId, startDate.toISOString()],
-                (err, licenseRow) => {
-                  if (err) {
-                    reject(err);
-                    return;
-                  }
-
-                  const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
-                  const averageDaily = totalValidations / days;
-
-                  resolve({
-                    totalValidations,
-                    activeLicenses,
-                    mostUsedLicense: licenseRow ? licenseRow.license_key : 'N/A',
-                    averageDaily: Math.round(averageDaily * 100) / 100,
-                    peakDay: 'N/A', // Could be enhanced with date grouping
-                    trend: 'Stable', // Could be enhanced with comparison
-                    licenseBreakdown: [] // Could be enhanced with detailed breakdown
-                  });
-                }
-              );
-            }
-          );
-        })
-        .catch(reject);
-    });
+  async getUserUsageStats(platformUserId, period = '30d') {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) {
+      return {
+        totalValidations: 0,
+        activeLicenses: 0,
+        mostUsedLicense: 'N/A',
+        averageDaily: 0,
+        peakDay: 'N/A',
+        trend: 'Stable',
+        licenseBreakdown: []
+      };
+    }
+    const now = new Date();
+    let startDate = new Date();
+    switch (period) {
+      case '7d': startDate.setDate(now.getDate() - 7); break;
+      case '30d': startDate.setDate(now.getDate() - 30); break;
+      case '90d': startDate.setDate(now.getDate() - 90); break;
+      case '1y': startDate.setFullYear(now.getFullYear() - 1); break;
+      default: startDate.setDate(now.getDate() - 30);
+    }
+    const totalValidations = await this.getValidationCount(platformUserId, startDate);
+    const countDistinct = await this.pool.query(
+      `SELECT COUNT(DISTINCT license_key)::int AS count FROM ${PREFIX}validations WHERE user_id = $1 AND created_at >= $2`,
+      [userId, startDate]
+    );
+    const mostUsed = await this.pool.query(
+      `SELECT license_key, COUNT(*) AS count FROM ${PREFIX}validations
+       WHERE user_id = $1 AND created_at >= $2
+       GROUP BY license_key ORDER BY count DESC LIMIT 1`,
+      [userId, startDate]
+    );
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
+    const averageDaily = totalValidations / days;
+    return {
+      totalValidations,
+      activeLicenses: countDistinct.rows[0]?.count ?? 0,
+      mostUsedLicense: mostUsed.rows[0] ? mostUsed.rows[0].license_key : 'N/A',
+      averageDaily: Math.round(averageDaily * 100) / 100,
+      peakDay: 'N/A',
+      trend: 'Stable',
+      licenseBreakdown: []
+    };
   }
 
-  async getUserSettings(userId) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM user_settings WHERE user_id = ?',
-        [userId],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row || {
-              user_id: userId,
-              notifications_enabled: 1,
-              analytics_enabled: 1,
-              language: 'en'
-            });
-          }
-        }
-      );
-    });
+  async getUserSettings(platformUserId) {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) {
+      return {
+        user_id: platformUserId,
+        notifications_enabled: 1,
+        analytics_enabled: 1,
+        language: 'en'
+      };
+    }
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}user_settings WHERE user_id = $1`,
+      [userId]
+    );
+    const row = r.rows[0];
+    if (!row) {
+      return { user_id: platformUserId, notifications_enabled: 1, analytics_enabled: 1, language: 'en' };
+    }
+    return {
+      user_id: platformUserId,
+      notifications_enabled: row.notifications_enabled,
+      analytics_enabled: row.analytics_enabled,
+      language: row.language || 'en'
+    };
   }
 
-  async updateUserSettings(userId, settings) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT id FROM user_settings WHERE user_id = ?',
-        [userId],
-        (err, row) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          if (row) {
-            const updates = [];
-            const values = [];
-            if (settings.notifications_enabled !== undefined) {
-              updates.push('notifications_enabled = ?');
-              values.push(settings.notifications_enabled ? 1 : 0);
-            }
-            if (settings.analytics_enabled !== undefined) {
-              updates.push('analytics_enabled = ?');
-              values.push(settings.analytics_enabled ? 1 : 0);
-            }
-            if (settings.language !== undefined) {
-              updates.push('language = ?');
-              values.push(settings.language);
-            }
-            values.push(userId);
-
-            this.db.run(
-              `UPDATE user_settings SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-              values,
-              function(updateErr) {
-                if (updateErr) {
-                  reject(updateErr);
-                } else {
-                  resolve({ changes: this.changes });
-                }
-              }
-            );
-          } else {
-            this.db.run(
-              `INSERT INTO user_settings (user_id, notifications_enabled, analytics_enabled, language)
-               VALUES (?, ?, ?, ?)`,
-              [
-                userId,
-                settings.notifications_enabled !== undefined ? (settings.notifications_enabled ? 1 : 0) : 1,
-                settings.analytics_enabled !== undefined ? (settings.analytics_enabled ? 1 : 0) : 1,
-                settings.language || 'en'
-              ],
-              function(insertErr) {
-                if (insertErr) {
-                  reject(insertErr);
-                } else {
-                  resolve({ id: this.lastID });
-                }
-              }
-            );
-          }
-        }
-      );
-    });
-  }
-
-  async updateUser(userId, userData) {
-    return new Promise((resolve, reject) => {
+  async updateUserSettings(platformUserId, settings) {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) return { changes: 0 };
+    const r = await this.pool.query(
+      `SELECT id FROM ${PREFIX}user_settings WHERE user_id = $1`,
+      [userId]
+    );
+    const notif = settings.notifications_enabled !== undefined ? (settings.notifications_enabled ? 1 : 0) : undefined;
+    const analytics = settings.analytics_enabled !== undefined ? (settings.analytics_enabled ? 1 : 0) : undefined;
+    const lang = settings.language !== undefined ? settings.language : undefined;
+    if (r.rows[0]) {
       const updates = [];
-      const values = [];
-      
-      if (userData.username !== undefined) {
-        updates.push('username = ?');
-        values.push(userData.username);
-      }
-      if (userData.discriminator !== undefined) {
-        updates.push('discriminator = ?');
-        values.push(userData.discriminator);
-      }
-      
-      if (updates.length === 0) {
-        resolve({ changes: 0 });
-        return;
-      }
-      
-      values.push(userId);
-      
-      this.db.run(
-        `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?`,
-        values,
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ changes: this.changes });
-          }
-        }
+      const vals = [];
+      let i = 1;
+      if (notif !== undefined) { updates.push(`notifications_enabled = $${i++}`); vals.push(notif); }
+      if (analytics !== undefined) { updates.push(`analytics_enabled = $${i++}`); vals.push(analytics); }
+      if (lang !== undefined) { updates.push(`language = $${i++}`); vals.push(lang); }
+      if (updates.length === 0) return { changes: 0 };
+      vals.push(userId);
+      const u = await this.pool.query(
+        `UPDATE ${PREFIX}user_settings SET ${updates.join(', ')}, updated_at = now() WHERE user_id = $${i}`,
+        vals
       );
-    });
+      return { changes: u.rowCount };
+    }
+    await this.pool.query(
+      `INSERT INTO ${PREFIX}user_settings (user_id, notifications_enabled, analytics_enabled, language)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, notif !== undefined ? notif : 1, analytics !== undefined ? analytics : 1, lang || 'en']
+    );
+    return { id: 1 };
+  }
+
+  async updateUser(discordId, userData) {
+    const updates = [];
+    const values = [];
+    if (userData.username !== undefined) { updates.push('username = $' + (values.length + 1)); values.push(userData.username); }
+    if (userData.discriminator !== undefined) { updates.push('discriminator = $' + (values.length + 1)); values.push(String(userData.discriminator)); }
+    if (updates.length === 0) return { changes: 0 };
+    values.push(String(discordId));
+    const r = await this.pool.query(
+      `UPDATE ${PREFIX}users SET ${updates.join(', ')}, updated_at = now() WHERE ${this.platformIdColumn} = $${values.length}`,
+      values
+    );
+    return { changes: r.rowCount };
   }
 
   async getBotStats() {
-    return new Promise((resolve, reject) => {
-      Promise.all([
-        new Promise((res, rej) => {
-          this.db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
-            if (err) rej(err);
-            else res(row.count);
-          });
-        }),
-        new Promise((res, rej) => {
-          this.db.get('SELECT COUNT(*) as count FROM licenses', (err, row) => {
-            if (err) rej(err);
-            else res(row.count);
-          });
-        }),
-        new Promise((res, rej) => {
-          this.db.get('SELECT COUNT(*) as count FROM commands', (err, row) => {
-            if (err) rej(err);
-            else res(row.count);
-          });
-        })
-      ])
-        .then(([totalUsers, totalLicenses, totalCommands]) => {
-          resolve({
-            totalUsers,
-            totalLicenses,
-            totalCommands
-          });
-        })
-        .catch(reject);
-    });
+    const [users, licenses, commands] = await Promise.all([
+      this.pool.query(`SELECT COUNT(*)::int AS c FROM ${PREFIX}users`),
+      this.pool.query(`SELECT COUNT(*)::int AS c FROM ${PREFIX}licenses`),
+      this.pool.query(`SELECT COUNT(*)::int AS c FROM ${PREFIX}commands`)
+    ]);
+    return {
+      totalUsers: users.rows[0]?.c ?? 0,
+      totalLicenses: licenses.rows[0]?.c ?? 0,
+      totalCommands: commands.rows[0]?.c ?? 0
+    };
   }
 
-  async createTicket(userId, subject, description) {
-    return new Promise((resolve, reject) => {
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      this.db.run(
-        `INSERT INTO tickets (ticket_id, user_id, subject, description)
-         VALUES (?, ?, ?, ?)`,
-        [ticketId, userId, subject, description],
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ id: this.lastID, ticketId, userId, subject, description, status: 'open' });
-          }
-        }
-      );
-    });
+  async createTicket(internalUserId, subject, description) {
+    const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    const r = await this.pool.query(
+      `INSERT INTO ${PREFIX}tickets (ticket_id, user_id, subject, description)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, ticket_id, user_id, subject, description, status`,
+      [ticketId, internalUserId, subject, description]
+    );
+    const row = r.rows[0];
+    return { id: row.id, ticketId, userId: internalUserId, subject, description, status: 'open' };
   }
 
-  async getTickets(userId) {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC',
-        [userId],
-        (err, rows) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(rows);
-          }
-        }
-      );
-    });
+  async getTickets(platformUserId) {
+    const userId = await this._resolveUserId(platformUserId);
+    if (userId == null) return [];
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}tickets WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    return r.rows.map(this._rowTicket);
+  }
+
+  _rowTicket(row) {
+    return {
+      id: row.id,
+      ticket_id: row.ticket_id,
+      user_id: row.user_id,
+      subject: row.subject,
+      description: row.description,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
   }
 
   async getTicket(ticketId) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM tickets WHERE ticket_id = ?',
-        [ticketId],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row);
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}tickets WHERE ticket_id = $1`,
+      [ticketId]
+    );
+    const row = r.rows[0];
+    return row ? this._rowTicket(row) : null;
   }
 
   async updateTicketStatus(ticketId, status) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?',
-        [status, ticketId],
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ changes: this.changes });
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `UPDATE ${PREFIX}tickets SET status = $1, updated_at = now() WHERE ticket_id = $2`,
+      [status, ticketId]
+    );
+    return { changes: r.rowCount };
   }
 
   async getAllTickets() {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM tickets ORDER BY created_at DESC',
-        [],
-        (err, rows) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(rows);
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}tickets ORDER BY created_at DESC`
+    );
+    return r.rows.map(this._rowTicket);
   }
 
   async getBotStatus() {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM bot_status ORDER BY updated_at DESC LIMIT 1',
-        [],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row ? row.status : 'online');
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `SELECT status FROM ${PREFIX}bot_status ORDER BY updated_at DESC LIMIT 1`
+    );
+    return r.rows[0] ? r.rows[0].status : 'online';
   }
 
   async setBotStatus(status, updatedBy) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM bot_status',
-        [],
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          this.db.run(
-            'INSERT INTO bot_status (status, updated_by) VALUES (?, ?)',
-            [status, updatedBy],
-            function(err) {
-              if (err) {
-                reject(err);
-              } else {
-                resolve({ id: this.lastID, status, updatedBy });
-              }
-            }
-          );
-        }
-      );
-    });
+    await this.pool.query(`DELETE FROM ${PREFIX}bot_status`);
+    await this.pool.query(
+      `INSERT INTO ${PREFIX}bot_status (status, updated_by) VALUES ($1, $2)`,
+      [status, updatedBy != null ? String(updatedBy) : null]
+    );
+    return { status, updatedBy };
   }
 
   async getAllUsers() {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM users ORDER BY created_at DESC',
-        [],
-        (err, rows) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(rows || []);
-          }
-        }
-      );
-    });
+    const r = await this.pool.query(
+      `SELECT * FROM ${PREFIX}users ORDER BY created_at DESC`
+    );
+    return r.rows.map(row => this._rowUser(row));
   }
 
   async close() {
-    return new Promise((resolve, reject) => {
-      if (this.db) {
-        this.db.close((err) => {
-          if (err) {
-            this.logger.error('Error closing database:', err);
-            reject(err);
-          } else {
-            this.logger.info('Database connection closed');
-            resolve();
-          }
-        });
-      } else {
-        resolve();
-      }
-    });
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
+      this.logger.info('Database connection closed');
+    }
   }
 }
 
 module.exports = DatabaseManager;
-

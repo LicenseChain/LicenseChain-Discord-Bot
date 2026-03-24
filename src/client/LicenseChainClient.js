@@ -126,9 +126,17 @@ class LicenseChainClient {
    */
   async updateLicense(licenseId, updateData) {
     try {
-      // If updating status only, use the status endpoint
+      // API v1 exposes explicit status endpoints
       if (updateData.status && Object.keys(updateData).length === 1) {
-        const response = await this.client.patch(`/v1/licenses/${licenseId}/status`, { status: updateData.status });
+        if (updateData.status === 'revoked') {
+          const response = await this.client.patch(`/v1/licenses/${licenseId}/revoke`, {});
+          return response.data;
+        }
+        if (updateData.status === 'active') {
+          const response = await this.client.patch(`/v1/licenses/${licenseId}/activate`, {});
+          return response.data;
+        }
+        const response = await this.client.patch(`/v1/licenses/${licenseId}`, updateData);
         return response.data;
       }
       
@@ -145,7 +153,7 @@ class LicenseChainClient {
    */
   async revokeLicense(licenseId) {
     try {
-      const response = await this.client.delete(`/v1/licenses/${licenseId}`);
+      const response = await this.client.patch(`/v1/licenses/${licenseId}/revoke`, {});
       return response.data;
     } catch (error) {
       throw new Error(`Failed to revoke license: ${error.response?.data?.message || error.message}`);
@@ -157,7 +165,7 @@ class LicenseChainClient {
    */
   async getLicenseAnalytics(licenseId, period = '30d') {
     try {
-      const response = await this.client.get(`/api/licenses/${licenseId}/analytics?period=${period}`);
+      const response = await this.client.get(`/v1/licenses/${licenseId}/analytics?period=${period}`);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to get license analytics: ${error.response?.data?.message || error.message}`);
@@ -184,7 +192,12 @@ class LicenseChainClient {
    */
   async createUser(userData) {
     try {
-      const response = await this.client.post('/api/users', userData);
+      const payload = {
+        email: userData.email,
+        name: userData.name,
+        password: userData.password || 'discord-bot-default-password'
+      };
+      const response = await this.client.post('/v1/auth/register', payload);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to create user: ${error.response?.data?.message || error.message}`);
@@ -195,12 +208,7 @@ class LicenseChainClient {
    * Update user
    */
   async updateUser(userId, updateData) {
-    try {
-      const response = await this.client.put(`/api/users/${userId}`, updateData);
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to update user: ${error.response?.data?.message || error.message}`);
-    }
+    throw new Error('updateUser is not available in API v1');
   }
 
   /**
@@ -208,7 +216,7 @@ class LicenseChainClient {
    */
   async getApplication(appId) {
     try {
-      const response = await this.client.get(`/api/applications/${appId}`);
+      const response = await this.client.get(`/v1/apps/${appId}`);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to get application: ${error.response?.data?.message || error.message}`);
@@ -220,7 +228,7 @@ class LicenseChainClient {
    */
   async getAnalytics(period = '30d', metrics = []) {
     try {
-      const response = await this.client.get(`/api/analytics?period=${period}&metrics=${metrics.join(',')}`);
+      const response = await this.client.get(`/v1/analytics/stats?period=${period}&metrics=${metrics.join(',')}`);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to get analytics: ${error.response?.data?.message || error.message}`);
@@ -311,12 +319,13 @@ class LicenseChainClient {
    * Verify webhook signature
    */
   verifyWebhookSignature(payload, signature, secret) {
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(payload)
-      .digest('hex');
-    
-    return signature === `sha256=${expectedSignature}`;
+    if (!payload || !signature || !secret) return false;
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const received = String(signature).startsWith('sha256=') ? String(signature).slice(7) : String(signature);
+    const a = Buffer.from(expected, 'hex');
+    const b = Buffer.from(received, 'hex');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   }
 
   /**
