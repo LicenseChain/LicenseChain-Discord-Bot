@@ -262,12 +262,6 @@ class LicenseChainClient {
         app.id === appName
       );
     } catch (error) {
-      // If API requires auth and fails, try using appName as appId directly
-      if (error.response?.status === 401) {
-        console.warn('API authentication failed, trying appName as appId');
-        // Return a mock app object with the appName as id
-        return { id: appName, name: appName, slug: appName };
-      }
       throw new Error(`Failed to get app: ${error.response?.data?.message || error.message}`);
     }
   }
