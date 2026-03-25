@@ -57,7 +57,7 @@ class LicenseChainClient {
       });
       return response.data;
     } catch (error) {
-      throw new Error(`License validation failed: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'License validation failed');
     }
   }
 
@@ -112,7 +112,7 @@ class LicenseChainClient {
         return issuedEmail === linkedEmail || email === linkedEmail;
       });
     } catch (error) {
-      throw new Error(`Failed to get user licenses: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get user licenses');
     }
   }
 
@@ -126,7 +126,7 @@ class LicenseChainClient {
       const response = await this.client.post(`/v1/apps/${appId}/licenses`, licenseData);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to create license: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to create license');
     }
   }
 
@@ -153,7 +153,7 @@ class LicenseChainClient {
       const response = await this.client.patch(`/v1/licenses/${licenseId}`, updateData);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to update license: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to update license');
     }
   }
 
@@ -165,7 +165,7 @@ class LicenseChainClient {
       const response = await this.client.patch(`/v1/licenses/${licenseId}/revoke`, {});
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to revoke license: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to revoke license');
     }
   }
 
@@ -177,7 +177,7 @@ class LicenseChainClient {
       const response = await this.client.get(`/v1/licenses/${licenseId}/analytics?period=${period}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get license analytics: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get license analytics');
     }
   }
 
@@ -209,7 +209,7 @@ class LicenseChainClient {
       const response = await this.client.post('/v1/auth/register', payload);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to create user: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to create user');
     }
   }
 
@@ -228,7 +228,7 @@ class LicenseChainClient {
       const response = await this.client.get(`/v1/apps/${appId}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get application: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get application');
     }
   }
 
@@ -240,7 +240,7 @@ class LicenseChainClient {
       const response = await this.client.get(`/v1/analytics/stats?period=${period}&metrics=${metrics.join(',')}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get analytics: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get analytics');
     }
   }
 
@@ -252,7 +252,7 @@ class LicenseChainClient {
       const response = await this.client.get(`/v1/apps/${appId}/licenses`);
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to get app licenses: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get app licenses');
     }
   }
 
@@ -270,7 +270,7 @@ class LicenseChainClient {
         app.id === appName
       );
     } catch (error) {
-      throw new Error(`Failed to get app: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get app');
     }
   }
 
@@ -297,7 +297,7 @@ class LicenseChainClient {
       
       return allLicenses;
     } catch (error) {
-      throw new Error(`Failed to get all licenses: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get all licenses');
     }
   }
 
@@ -314,7 +314,7 @@ class LicenseChainClient {
       });
       return response.data;
     } catch (error) {
-      throw new Error(`Failed to send webhook: ${error.message}`);
+      throw normalizeAxiosError(error, 'Failed to send webhook');
     }
   }
 
@@ -339,7 +339,7 @@ class LicenseChainClient {
       const response = await this.client.get('/v1/health');
       return response.data;
     } catch (error) {
-      throw new Error(`Health check failed: ${error.message}`);
+      throw normalizeAxiosError(error, 'Health check failed');
     }
   }
 }
