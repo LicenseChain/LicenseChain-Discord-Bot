@@ -237,6 +237,15 @@ module.exports = {
             }));
           }
         } catch (apiError) {
+          if (String(apiError.message || '').includes('DISCORD_ACCOUNT_NOT_LINKED')) {
+            const embed = new EmbedBuilder()
+              .setColor('#ffaa00')
+              .setTitle('🔗 Account Link Required')
+              .setDescription('Link your Discord account in the LicenseChain Dashboard, then run `/license list` again.')
+              .setTimestamp();
+            await interaction.editReply({ embeds: [embed] });
+            return;
+          }
           console.warn('Could not fetch licenses from API:', apiError.message);
         }
       }

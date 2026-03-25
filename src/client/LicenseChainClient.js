@@ -5,6 +5,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const { normalizeAxiosError, normalizeVerifyPayload } = require('./licensechainApiNormalize');
+const { getLinkedUser } = require('./DashboardClient');
 
 class LicenseChainClient {
   constructor(config) {
@@ -79,6 +80,12 @@ class LicenseChainClient {
    */
   async getUserLicenses(userId) {
     try {
+      const linked = await getLinkedUser(userId);
+      const linkedEmail = (linked?.email || '').trim().toLowerCase();
+      if (!linkedEmail) {
+        throw new Error('DISCORD_ACCOUNT_NOT_LINKED');
+      }
+
       // Get all app licenses and filter by user
       const appName = process.env.LICENSECHAIN_APP_NAME;
       if (!appName) {
@@ -98,10 +105,11 @@ class LicenseChainClient {
       const licensesData = await this.getAppLicenses(appId);
       const allLicenses = licensesData?.licenses || licensesData || [];
       
-      // Filter licenses by userId (email or issuedTo matching)
-      // Note: This is a simplified filter - adjust based on your data structure
+      // Scope licenses by linked dashboard email to avoid discord-id/email drift.
       return allLicenses.filter(license => {
-        return license.issuedEmail === userId || license.issuedTo === userId || license.email === userId;
+        const issuedEmail = (license?.issuedEmail || '').trim().toLowerCase();
+        const email = (license?.email || '').trim().toLowerCase();
+        return issuedEmail === linkedEmail || email === linkedEmail;
       });
     } catch (error) {
       throw new Error(`Failed to get user licenses: ${error.response?.data?.message || error.message}`);
