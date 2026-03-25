@@ -55,7 +55,7 @@ class LicenseChainClient {
         key: licenseKey,
         hardwareId: hardwareId || 'discord-bot'
       });
-      return response.data;
+      return normalizeVerifyPayload(response.data);
     } catch (error) {
       throw normalizeAxiosError(error, 'License validation failed');
     }
