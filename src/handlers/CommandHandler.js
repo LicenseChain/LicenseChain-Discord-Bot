@@ -207,26 +207,10 @@ class CommandHandler {
       .setPlaceholder('monthly')
       .setRequired(true);
 
-    const priceInput = new TextInputBuilder()
-      .setCustomId('price')
-      .setLabel('Price')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('99.99')
-      .setRequired(true);
-
-    const featuresInput = new TextInputBuilder()
-      .setCustomId('features')
-      .setLabel('Features (one per line)')
-      .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('Feature 1\nFeature 2\nFeature 3')
-      .setRequired(false);
-
     const firstActionRow = new ActionRowBuilder().addComponents(applicationNameInput);
     const secondActionRow = new ActionRowBuilder().addComponents(planInput);
-    const thirdActionRow = new ActionRowBuilder().addComponents(priceInput);
-    const fourthActionRow = new ActionRowBuilder().addComponents(featuresInput);
 
-    modal.addComponents(firstActionRow, secondActionRow, thirdActionRow, fourthActionRow);
+    modal.addComponents(firstActionRow, secondActionRow);
 
     return modal;
   }
