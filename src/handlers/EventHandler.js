@@ -108,45 +108,6 @@ class EventHandler {
             }
         });
 
-        // Interaction create event (for slash commands)
-        this.client.on(Events.InteractionCreate, async (interaction) => {
-            if (!interaction.isChatInputCommand()) return;
-
-            const command = this.client.commands?.get(interaction.commandName);
-            if (!command) return;
-
-            try {
-                // Check if command is guild only
-                if (command.guildOnly && !interaction.guild) {
-                    return interaction.reply({ 
-                        content: 'This command can only be used in a server!', 
-                        ephemeral: true 
-                    });
-                }
-
-                // Check permissions
-                if (command.permissions && !interaction.member?.permissions.has(command.permissions)) {
-                    return interaction.reply({ 
-                        content: 'You do not have permission to use this command!', 
-                        ephemeral: true 
-                    });
-                }
-
-                // Execute command
-                await command.execute(interaction);
-                logger.info(`Slash command executed: ${interaction.commandName} by ${interaction.user.tag} in ${interaction.guild?.name || 'DM'}`);
-            } catch (error) {
-                logger.error(`Error executing slash command ${interaction.commandName}:`, error);
-                
-                const errorMessage = 'There was an error while executing this command!';
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: errorMessage, ephemeral: true });
-                } else {
-                    await interaction.reply({ content: errorMessage, ephemeral: true });
-                }
-            }
-        });
-
         // Voice state update event
         this.client.on(Events.VoiceStateUpdate, (oldState, newState) => {
             // Handle voice state changes if needed
