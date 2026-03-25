@@ -153,8 +153,8 @@ module.exports = {
         return;
       }
 
-      // Get detailed license information
-      const licenseInfo = await licenseClient.getLicense(validation.licenseId || 'unknown');
+      // Get detailed license information by key (avoid fallback unknown identifier)
+      const licenseInfo = await licenseClient.getLicense(licenseKey);
 
       const embed = new EmbedBuilder()
         .setColor('#0099ff')
