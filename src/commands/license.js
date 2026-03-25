@@ -293,25 +293,7 @@ module.exports = {
         });
       });
 
-      if (totalPages > 1) {
-        const row = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`license_list_${page - 1}`)
-              .setLabel('◀️ Previous')
-              .setStyle(ButtonStyle.Primary)
-              .setDisabled(page <= 1),
-            new ButtonBuilder()
-              .setCustomId(`license_list_${page + 1}`)
-              .setLabel('Next ▶️')
-              .setStyle(ButtonStyle.Primary)
-              .setDisabled(page >= totalPages)
-          );
-
-        await interaction.editReply({ embeds: [embed], components: [row] });
-      } else {
-        await interaction.editReply({ embeds: [embed] });
-      }
+      await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       const errorEmbed = new EmbedBuilder()
         .setColor('#ff0000')

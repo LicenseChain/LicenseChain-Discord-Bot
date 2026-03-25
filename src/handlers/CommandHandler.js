@@ -53,6 +53,46 @@ class CommandHandler {
   }
 
   async handleInteraction(interaction) {
+    if (interaction.isModalSubmit && interaction.isModalSubmit()) {
+      if (interaction.customId === 'create_license_modal') {
+        try {
+          const applicationName = interaction.fields.getTextInputValue('application_name');
+          const planRaw = interaction.fields.getTextInputValue('plan');
+          const plan = String(planRaw || '').trim().toUpperCase();
+
+          const allowedPlans = ['FREE', 'PRO', 'BUSINESS', 'ENTERPRISE'];
+          if (!allowedPlans.includes(plan)) {
+            return interaction.reply({
+              content: `❌ Invalid plan. Allowed values: ${allowedPlans.join(', ')}`,
+              ephemeral: true,
+            });
+          }
+
+          const app = await this.licenseClient.getAppByName(applicationName);
+          if (!app?.id) {
+            return interaction.reply({
+              content: `❌ Application not found for: ${applicationName}`,
+              ephemeral: true,
+            });
+          }
+
+          const created = await this.licenseClient.createLicense(app.id, { plan });
+          const licenseKey = created?.licenseKey || created?.key || created?.id || 'N/A';
+
+          return interaction.reply({
+            content: `✅ License created.\n\nKey: \`${licenseKey}\``,
+            ephemeral: true,
+          });
+        } catch (error) {
+          console.error('ModalSubmit create_license_modal failed:', error);
+          return interaction.reply({
+            content: '❌ Failed to create license.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
