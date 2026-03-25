@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const Validator = require('./Validator');
 
 class Utils {
     static validateEmail(email) {
@@ -7,7 +8,12 @@ class Utils {
     }
 
     static validateLicenseKey(licenseKey) {
-        return licenseKey.length === 32 && /^[A-Z0-9]+$/.test(licenseKey);
+        try {
+            Validator.validateLicenseKey(licenseKey);
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     static validateUuid(uuid) {
