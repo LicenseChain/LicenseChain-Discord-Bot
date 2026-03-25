@@ -283,12 +283,28 @@ module.exports = {
         .setTimestamp();
 
       pageLicenses.forEach((license, index) => {
-        const status = license.status === 'active' ? '✅' : license.status === 'expired' ? '❌' : '⚠️';
+        const rawStatus = String(license.status || 'unknown');
+        const normalizedStatus = rawStatus.toLowerCase();
+        let statusLabel = rawStatus.toUpperCase();
+        let statusIcon = '⚠️';
+        if (normalizedStatus === 'active') {
+          statusLabel = 'ACTIVE';
+          statusIcon = '✅';
+        } else if (normalizedStatus === 'expired') {
+          statusLabel = 'EXPIRED';
+          statusIcon = '❌';
+        } else if (normalizedStatus === 'revoked') {
+          statusLabel = 'REVOKED';
+          statusIcon = '🚫';
+        } else if (normalizedStatus === 'suspended') {
+          statusLabel = 'SUSPENDED';
+          statusIcon = '⛔';
+        }
         const expires = license.expiresAt ? new Date(license.expiresAt).toLocaleDateString() : 'Never';
         
         embed.addFields({
-          name: `${status} ${license.applicationName || 'Unknown App'}`,
-          value: `**Key:** \`${license.key}\`\n**Plan:** ${license.plan}\n**Expires:** ${expires}`,
+          name: `${statusIcon} ${license.applicationName || 'Unknown App'}`,
+          value: `**Status:** ${statusLabel}\n**Key:** \`${license.key}\`\n**Plan:** ${license.plan}\n**Expires:** ${expires}`,
           inline: true
         });
       });
