@@ -1,6 +1,7 @@
 /**
  * Vendored copy — keep in sync with:
- * - LicenseChain-TG-Bot/src/client/licensechainApiNormalize.js (identical)
+ * - Bots/LicenseChain-Discord-Bot/src/client/licensechainApiNormalize.js
+ * - Bots/LicenseChain-TG-Bot/src/client/licensechainApiNormalize.js
  * - api/src/contracts/bot-license-contracts.ts
  */
 
