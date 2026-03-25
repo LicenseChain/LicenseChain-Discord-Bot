@@ -73,7 +73,7 @@ docker-compose up -d
 - Default port is 3004 (not 3000)
 
 **Docker Permission Issues:**
-If you encounter permission errors (`SQLITE_CANTOPEN` or `EACCES`), try one of these solutions:
+If you encounter permission errors (`EACCES`), try one of these solutions:
 
 1. **Fix permissions on host (Linux/Mac):**
    ```bash
@@ -235,8 +235,8 @@ LICENSECHAIN_APP_NAME=your-app-name-here
 LICENSECHAIN_APP_VERSION=1.0.0
 
 # Database Configuration
-# SQLite database path (default: data/bot.db)
-DATABASE_URL=data/bot.db
+# PostgreSQL connection string (e.g. Supabase). SQLite is not supported.
+DATABASE_URL=postgresql://username:password@localhost:5432/licensechain
 
 # Server Configuration
 # Port for health check server (default: 3004)
@@ -437,17 +437,10 @@ module.exports = {
 
 ### Database Configuration
 
-The bot supports multiple database types:
+The bot uses PostgreSQL (Supabase) only:
 
 ```javascript
-// PostgreSQL
 DATABASE_URL=postgresql://username:password@localhost:5432/licensechain
-
-// MySQL
-DATABASE_URL=mysql://username:password@localhost:3306/licensechain
-
-// SQLite
-DATABASE_URL=sqlite://./database.sqlite
 ```
 
 ## Security Features
