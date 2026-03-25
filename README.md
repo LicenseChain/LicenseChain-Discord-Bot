@@ -1,4 +1,4 @@
-﻿# LicenseChain Discord Bot
+# LicenseChain Discord Bot
 
 [![License](https://img.shields.io/badge/license-ELASTIC2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
@@ -682,6 +682,9 @@ All endpoints automatically use the /v1 prefix when connecting to https://api.li
 | GET | /v1/webhooks | List webhooks |
 | POST | /v1/webhooks | Create webhook |
 | GET | /v1/analytics | Get analytics |
+
+## Vendored API normalize helper
+Both bots vendor an identical `src/client/licensechainApiNormalize.js` module to keep Docker builds self-contained (no shared module path). If the normalization logic changes, update both files to be byte-identical.
 
 **Note**: The SDK automatically prepends /v1 to all endpoints, so you only need to specify the path (e.g., /auth/login instead of /v1/auth/login).
 
