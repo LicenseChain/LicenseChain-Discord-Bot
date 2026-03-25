@@ -336,7 +336,7 @@ class LicenseChainClient {
    */
   async healthCheck() {
     try {
-      const response = await this.client.get('/health');
+      const response = await this.client.get('/v1/health');
       return response.data;
     } catch (error) {
       throw new Error(`Health check failed: ${error.message}`);
