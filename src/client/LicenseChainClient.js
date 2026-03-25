@@ -4,6 +4,7 @@
 
 const axios = require('axios');
 const crypto = require('crypto');
+const { normalizeAxiosError, normalizeVerifyPayload } = require('./licensechainApiNormalize');
 
 class LicenseChainClient {
   constructor(config) {
@@ -66,9 +67,9 @@ class LicenseChainClient {
     try {
       // Use verify endpoint to get license info
       const response = await this.client.post('/v1/licenses/verify', { key: licenseKey });
-      return response.data;
+      return normalizeVerifyPayload(response.data);
     } catch (error) {
-      throw new Error(`Failed to get license: ${error.response?.data?.message || error.message}`);
+      throw normalizeAxiosError(error, 'Failed to get license');
     }
   }
 
