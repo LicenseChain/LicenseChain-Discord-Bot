@@ -9,8 +9,11 @@ const logger = new Logger('PermissionManager');
 class PermissionManager {
   constructor(client) {
     this.client = client;
-    this.ownerId = process.env.BOT_OWNER_ID || null;
-    this.adminRoleIds = (process.env.ADMIN_ROLE_IDS || '').split(',').filter(id => id.trim());
+    this.ownerId = (process.env.BOT_OWNER_ID || '').trim() || null;
+    this.adminRoleIds = (process.env.ADMIN_ROLE_IDS || '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(Boolean);
   }
 
   /**

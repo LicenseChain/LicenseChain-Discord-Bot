@@ -1,12 +1,13 @@
 /**
  * Database Manager for Discord Bot
- * Uses Supabase/PostgreSQL tg_bot_* tables. Set DATABASE_URL to Postgres connection string.
+ * Uses Supabase/PostgreSQL discord_bot_* tables by default.
+ * Set DATABASE_URL to Postgres connection string.
  */
 
 const { Pool } = require('pg');
 const Logger = require('../utils/Logger');
 
-const PREFIX = 'tg_bot_';
+const PREFIX = (process.env.BOT_DB_TABLE_PREFIX || 'discord_bot_').trim();
 
 function getConnectionConfig() {
   const url = process.env.DATABASE_URL || '';

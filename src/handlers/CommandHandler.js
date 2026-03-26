@@ -5,6 +5,7 @@
 const { Collection, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const PermissionManager = require('../utils/PermissionManager');
 
 class CommandHandler {
   constructor(client, licenseClient, dbManager) {
@@ -56,6 +57,9 @@ class CommandHandler {
     if (interaction.isModalSubmit && interaction.isModalSubmit()) {
       if (interaction.customId === 'create_license_modal') {
         try {
+          const permissionManager = new PermissionManager(interaction.client);
+          await permissionManager.requirePermission(interaction.member, 'admin');
+
           const applicationName = interaction.fields.getTextInputValue('application_name');
           const planRaw = interaction.fields.getTextInputValue('plan');
           const plan = String(planRaw || '').trim().toUpperCase();
