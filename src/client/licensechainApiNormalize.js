@@ -1,6 +1,6 @@
 /**
- * Vendored copy — keep in sync with:
- * - Bots/LicenseChain-Discord-Bot/src/client/licensechainApiNormalize.js
+ * Vendored copy — keep byte-identical with:
+ * - Bots/shared/licensechain-api-normalize/index.js
  * - Bots/LicenseChain-TG-Bot/src/client/licensechainApiNormalize.js
  * - api/src/contracts/bot-license-contracts.ts
  */
@@ -56,6 +56,12 @@ function normalizeVerifyPayload(data) {
     verificationType: typeof o.verificationType === 'string' ? o.verificationType : o.verificationType,
     error: typeof o.error === 'string' ? o.error : o.error,
     hardwareId: typeof o.hardwareId === 'string' ? o.hardwareId : o.hardwareId,
+    license_token: typeof o.license_token === 'string' ? o.license_token : o.license_token,
+    license_token_expires_at:
+      typeof o.license_token_expires_at === 'string'
+        ? o.license_token_expires_at
+        : o.license_token_expires_at,
+    license_jwks_uri: typeof o.license_jwks_uri === 'string' ? o.license_jwks_uri : o.license_jwks_uri,
   };
 }
 

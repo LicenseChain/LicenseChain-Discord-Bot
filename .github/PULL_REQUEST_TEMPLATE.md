@@ -13,7 +13,7 @@ Closes #____
 
 ## Vendored API helper
 
-- [ ] If editing `src/client/licensechainApiNormalize.js`: apply the same change to `LicenseChain-TG-Bot` and update `api/src/contracts/bot-license-contracts.ts` + tests if shapes change.
+- [ ] If editing `src/client/licensechainApiNormalize.js`: mirror the same bytes in `LicenseChain-TG-Bot`, `Bots/shared/licensechain-api-normalize/index.js`, and `api/src/contracts/bot-license-contracts.ts` + tests if shapes change.
 
 ## Verification
 
