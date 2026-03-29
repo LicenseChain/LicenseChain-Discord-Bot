@@ -683,8 +683,8 @@ All endpoints automatically use the /v1 prefix when connecting to https://api.li
 | POST | /v1/webhooks | Create webhook |
 | GET | /v1/analytics | Get analytics |
 
-## Vendored API normalize helper
-Both bots vendor an identical `src/client/licensechainApiNormalize.js` module to keep Docker builds self-contained (no shared module path). If the normalization logic changes, update both files to be byte-identical.
+## API normalize helper (`licensechainApiNormalize.js`)
+Vendored at `src/client/licensechainApiNormalize.js` (optional `license_token` / `license_jwks_uri`) so Docker builds stay self-contained (no shared module path). A monorepo may keep an authoring copy under `Bots/shared/licensechain-api-normalize/` — **update all copies byte-identically** when the verify response shape changes; keep in sync with `api/src/contracts/bot-license-contracts.ts`. Versioning policy (Git-tracked): [LicenseChain/sdks — `docs/licensechain-api-normalize-VERSIONING.md`](https://github.com/LicenseChain/sdks/blob/main/docs/licensechain-api-normalize-VERSIONING.md).
 
 **Note**: The SDK automatically prepends /v1 to all endpoints, so you only need to specify the path (e.g., /auth/login instead of /v1/auth/login).
 
