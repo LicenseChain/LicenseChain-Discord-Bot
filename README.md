@@ -18,6 +18,12 @@ Official Discord Bot for LicenseChain - License management and customer support 
 - **Security** - Secure authentication and authorization
 - **Easy Setup** - Simple configuration and deployment
 
+## Core API v1 surface (LicenseChain HTTP API)
+
+Documentation references for the public API ([LicenseChain API](https://github.com/LicenseChain/api)). **Base URL:** `https://api.licensechain.app/v1`.
+
+Representative routes: `GET /health`, `POST /auth/register`, `POST /licenses/verify`, `PATCH /licenses/:id/revoke`, `PATCH /licenses/:id/activate`, `PATCH /licenses/:id/extend`, `GET /analytics/stats`.
+
 ## Installation
 
 ### Method 1: npm (Recommended)
